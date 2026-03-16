@@ -269,13 +269,17 @@ function showMessageDetail(msg: Message) {
   showMessageDetailDialog.value = true
 }
 
-function formatPayload(payload: number[] | Uint8Array): string {
+function formatPayload(payload: unknown): string {
   try {
-    const text = new TextDecoder().decode(new Uint8Array(payload))
+    if (!payload) return ''
+    const arr = new Uint8Array(payload as number[])
+    const text = new TextDecoder().decode(arr)
     const parsed = JSON.parse(text)
     return JSON.stringify(parsed, null, 2)
   } catch {
-    return new TextDecoder().decode(new Uint8Array(payload))
+    if (!payload) return ''
+    const arr = new Uint8Array(payload as number[])
+    return new TextDecoder().decode(arr)
   }
 }
 

@@ -266,11 +266,13 @@ export const useAppStore = defineStore('app', () => {
   async function loadMessages(topic?: string) {
     if (!currentConnectionId.value) return
     try {
-      messages.value = await window.go.main.App.GetMessages(
+      const msgs = await window.go.main.App.GetMessages(
         currentConnectionId.value,
         topic || '',
         100
       )
+      console.log('Loaded messages:', msgs)
+      messages.value = msgs
     } catch (error) {
       console.error('Failed to load messages:', error)
     }
