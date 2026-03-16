@@ -5,10 +5,16 @@ import type { Message, TopicNode } from '../types'
 import {
   SplitterGroup,
   SplitterPanel,
-  SplitterResizeHandle
+  SplitterResizeHandle,
+  DialogRoot,
+  DialogContent,
+  DialogTitle,
+  DialogClose
 } from 'radix-vue'
 
 const store = useAppStore()
+
+const showMessageDetailDialog = ref(false)
 
 type SearchMode = 'substring' | 'case-sensitive' | 'exact' | 'regex'
 
@@ -177,38 +183,6 @@ function deleteTopic() {
   }
 }
 
-function toggleTopicSearchMode() {
-  const modes: SearchMode[] = ['substring', 'case-sensitive', 'exact', 'regex']
-  const currentIndex = modes.indexOf(topicSearchMode.value)
-  topicSearchMode.value = modes[(currentIndex + 1) % modes.length]
-}
-
-function toggleValueSearchMode() {
-  const modes: SearchMode[] = ['substring', 'case-sensitive', 'exact', 'regex']
-  const currentIndex = modes.indexOf(valueSearchMode.value)
-  valueSearchMode.value = modes[(currentIndex + 1) % modes.length]
-}
-
-function getSearchModeIcon(mode: SearchMode): string {
-  switch (mode) {
-    case 'substring': return 'mdi-magnify'
-    case 'case-sensitive': return 'mdi-format-text'
-    case 'exact': return 'mdi-equal'
-    case 'regex': return 'mdi-regex'
-    default: return 'mdi-magnify'
-  }
-}
-
-function getSearchModeTooltip(mode: SearchMode): string {
-  switch (mode) {
-    case 'substring': return 'Substring match (Aa for case sensitive)'
-    case 'case-sensitive': return 'Case sensitive'
-    case 'exact': return 'Exact match'
-    case 'regex': return 'Regex'
-    default: return ''
-  }
-}
-
 async function sendMessage() {
   if (!store.currentConnectionId) return
   try {
@@ -292,6 +266,7 @@ function isVisible(topic: string, level: number): boolean {
 
 function showMessageDetail(msg: Message) {
   store.selectedMessage = msg
+  showMessageDetailDialog.value = true
 }
 
 function formatPayload(payload: number[] | Uint8Array): string {
@@ -403,16 +378,44 @@ watch(() => store.messages, () => {
         <span class="topic-count">{{ totalMessageCount }}</span>
       </div>
       <div class="topics-search">
-        <div class="search-field">
-          <span class="mdi mdi-magnify"></span>
-          <input
-            v-model="topicSearchQuery"
-            type="text"
-            class="input"
-            placeholder="Search topics..."
-          />
-          <button class="search-mode-btn" @click="toggleTopicSearchMode" :title="getSearchModeTooltip(topicSearchMode)">
-            <span class="mdi" :class="getSearchModeIcon(topicSearchMode)"></span>
+        <input
+          v-model="topicSearchQuery"
+          type="text"
+          class="input"
+          placeholder="Search topics..."
+        />
+        <div class="search-mode-buttons">
+          <button 
+            class="search-mode-btn" 
+            :class="{ active: topicSearchMode === 'substring' }"
+            @click="topicSearchMode = 'substring'"
+            title="Substring"
+          >
+            Aa
+          </button>
+          <button 
+            class="search-mode-btn" 
+            :class="{ active: topicSearchMode === 'case-sensitive' }"
+            @click="topicSearchMode = 'case-sensitive'"
+            title="Case sensitive"
+          >
+            A
+          </button>
+          <button 
+            class="search-mode-btn" 
+            :class="{ active: topicSearchMode === 'exact' }"
+            @click="topicSearchMode = 'exact'"
+            title="Exact match"
+          >
+            =
+          </button>
+          <button 
+            class="search-mode-btn" 
+            :class="{ active: topicSearchMode === 'regex' }"
+            @click="topicSearchMode = 'regex'"
+            title="Regex"
+          >
+            .*
           </button>
         </div>
       </div>
@@ -468,19 +471,47 @@ watch(() => store.messages, () => {
                 </button>
               </div>
               <div v-if="store.selectedTopic" class="header-filters">
-                <div class="search-field">
-                  <span class="mdi mdi-magnify"></span>
-                  <input
-                    v-model="valueSearchQuery"
-                    type="text"
-                    class="input"
-                    placeholder="Search in payload..."
-                  />
-                  <button class="search-mode-btn" @click="toggleValueSearchMode" :title="getSearchModeTooltip(valueSearchMode)">
-                    <span class="mdi" :class="getSearchModeIcon(valueSearchMode)"></span>
+                <input
+                  v-model="valueSearchQuery"
+                  type="text"
+                  class="input"
+                  placeholder="Search in payload..."
+                />
+                <div class="search-mode-buttons">
+                  <button 
+                    class="search-mode-btn" 
+                    :class="{ active: valueSearchMode === 'substring' }"
+                    @click="valueSearchMode = 'substring'"
+                    title="Substring"
+                  >
+                    Aa
+                  </button>
+                  <button 
+                    class="search-mode-btn" 
+                    :class="{ active: valueSearchMode === 'case-sensitive' }"
+                    @click="valueSearchMode = 'case-sensitive'"
+                    title="Case sensitive"
+                  >
+                    A
+                  </button>
+                  <button 
+                    class="search-mode-btn" 
+                    :class="{ active: valueSearchMode === 'exact' }"
+                    @click="valueSearchMode = 'exact'"
+                    title="Exact match"
+                  >
+                    =
+                  </button>
+                  <button 
+                    class="search-mode-btn" 
+                    :class="{ active: valueSearchMode === 'regex' }"
+                    @click="valueSearchMode = 'regex'"
+                    title="Regex"
+                  >
+                    .*
                   </button>
                 </div>
-                <button class="btn btn-secondary" @click="deleteTopic">
+                <button class="btn btn-danger delete-btn" @click="deleteTopic">
                   <span class="mdi mdi-delete"></span>
                   Delete
                 </button>
@@ -534,7 +565,7 @@ watch(() => store.messages, () => {
                 <textarea v-model="sendForm.payload" class="input textarea w-full" rows="3" required></textarea>
               </div>
               <div class="form-row">
-                <div class="form-group">
+                <div class="form-group qos-field">
                   <label class="label">QoS</label>
                   <select v-model.number="sendForm.qos" class="input w-full">
                     <option :value="0">0 - At most once</option>
@@ -542,14 +573,40 @@ watch(() => store.messages, () => {
                     <option :value="2">2 - Exactly once</option>
                   </select>
                 </div>
-                <div class="form-group">
-                  <label class="checkbox-label">
+                <div class="form-group retain-field">
+                  <label class="label">Retain</label>
+                  <label class="switch">
                     <input v-model="sendForm.retain" type="checkbox" />
-                    Retain
+                    <span class="slider"></span>
                   </label>
                 </div>
               </div>
-              <button class="btn btn-primary w-full" @click="sendMessage" :disabled="!store.isConnected">
+              <div class="form-divider">
+                <span class="form-divider-text">MQTT 5 Properties</span>
+              </div>
+              <div class="form-group">
+                <label class="label">Content Type</label>
+                <input v-model="sendForm.contentType" type="text" class="input w-full" placeholder="e.g., application/json" />
+              </div>
+              <div class="form-group">
+                <div class="user-properties-header">
+                  <label class="label">User Properties</label>
+                  <button type="button" class="btn btn-ghost btn-sm" @click="addUserProperty">
+                    <span class="mdi mdi-plus"></span>
+                    Add
+                  </button>
+                </div>
+                <div v-if="sendForm.userProperties.length > 0" class="user-properties-list">
+                  <div v-for="(prop, index) in sendForm.userProperties" :key="index" class="user-property-row">
+                    <input v-model="prop.key" type="text" class="input" placeholder="Key" />
+                    <input v-model="prop.value" type="text" class="input" placeholder="Value" />
+                    <button type="button" class="btn btn-ghost btn-icon" @click="removeUserProperty(index)">
+                      <span class="mdi mdi-close"></span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <button class="btn btn-primary w-full send-btn" @click="sendMessage" :disabled="!store.isConnected">
                 <span class="mdi mdi-send"></span>
                 Send
               </button>
@@ -558,6 +615,53 @@ watch(() => store.messages, () => {
         </SplitterPanel>
       </SplitterGroup>
     </main>
+
+    <DialogRoot v-model:open="showMessageDetailDialog">
+      <DialogContent class="dialog-content message-detail-dialog">
+        <DialogTitle class="dialog-title">Message Details</DialogTitle>
+
+        <div v-if="store.selectedMessage" class="message-detail">
+          <div class="detail-row">
+            <span class="detail-label">Topic</span>
+            <span class="detail-value mono">{{ store.selectedMessage.topic }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Timestamp</span>
+            <span class="detail-value">{{ store.selectedMessage.timestamp }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">QoS</span>
+            <span class="detail-value">{{ store.selectedMessage.qos }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Retain</span>
+            <span class="detail-value">{{ store.selectedMessage.retain ? 'Yes' : 'No' }}</span>
+          </div>
+          <div v-if="store.selectedMessage.contentType" class="detail-row">
+            <span class="detail-label">Content Type</span>
+            <span class="detail-value">{{ store.selectedMessage.contentType }}</span>
+          </div>
+          <div v-if="store.selectedMessage.userProperties && Object.keys(store.selectedMessage.userProperties).length > 0" class="detail-row">
+            <span class="detail-label">User Props</span>
+            <span class="detail-value">{{ JSON.stringify(store.selectedMessage.userProperties) }}</span>
+          </div>
+          <div class="detail-payload-container">
+            <span class="detail-label">Payload</span>
+            <pre class="detail-payload mono">{{ formatPayload(store.selectedMessage.payload) }}</pre>
+          </div>
+        </div>
+
+        <div class="dialog-actions">
+          <DialogClose as-child>
+            <button type="button" class="btn btn-primary">Close</button>
+          </DialogClose>
+        </div>
+
+        <DialogClose class="dialog-close">
+          <span class="mdi mdi-close"></span>
+        </DialogClose>
+      </DialogContent>
+    </DialogRoot>
   </div>
 </template>
 
@@ -609,6 +713,54 @@ watch(() => store.messages, () => {
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 10px;
+}
+
+.topics-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.topics-search .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-mode-buttons {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.search-mode-btn {
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  color: var(--color-muted-foreground);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.search-mode-btn:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.search-mode-btn:last-child {
+  border-radius: 0 4px 4px 0;
+}
+
+.search-mode-btn:hover {
+  background: var(--color-muted);
+}
+
+.search-mode-btn.active {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
 }
 
 .topics-tree {
@@ -808,6 +960,11 @@ watch(() => store.messages, () => {
   gap: 12px;
 }
 
+.send-btn {
+  flex-shrink: 0;
+  margin-top: 8px;
+}
+
 .messages-header {
   display: flex;
   align-items: center;
@@ -815,6 +972,36 @@ watch(() => store.messages, () => {
   padding: 16px 24px;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-background);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.header-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.header-filters .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.delete-btn {
+  margin-left: 42px;
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.header-left {
+  flex: 1;
+  min-width: 0;
 }
 
 .header-left h2 {
@@ -852,6 +1039,74 @@ watch(() => store.messages, () => {
   gap: 6px;
   font-size: 13px;
   cursor: pointer;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--color-muted);
+  transition: 0.2s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.2s;
+  border-radius: 50%;
+}
+
+.switch input:checked + .slider {
+  background-color: var(--color-primary);
+}
+
+.switch input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+.user-properties-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.user-properties-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.user-property-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.user-property-row .input {
+  flex: 1;
 }
 
 .messages-list {
@@ -965,11 +1220,47 @@ watch(() => store.messages, () => {
 .form-row {
   display: flex;
   gap: 12px;
-  align-items: flex-end;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .form-row .form-group {
+  flex: 0 0 auto;
+}
+
+.form-row .form-group.retain-field {
+  margin-left: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.form-row .form-group.retain-field .label {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+.form-divider {
+  display: flex;
+  align-items: center;
+  margin: 16px 0;
+  gap: 12px;
+}
+
+.form-divider::before,
+.form-divider::after {
+  content: '';
   flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.form-divider-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .textarea {
@@ -1041,6 +1332,31 @@ watch(() => store.messages, () => {
 .detail-value {
   flex: 1;
   word-break: break-all;
+}
+
+.detail-payload-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.detail-payload {
+  flex: 1;
+  background: var(--color-muted);
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+  font-size: 12px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
 }
 
 .detail-payload {
