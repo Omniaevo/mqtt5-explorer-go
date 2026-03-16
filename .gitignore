@@ -1,0 +1,37 @@
+build/bin
+node_modules
+frontend/dist
+
+# Wails
+.wails/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+mqtt5-explorer-go
+
+# IDE
+.idea/
+.vscode/
+.zed/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Go
+vendor/
+coverage.txt
