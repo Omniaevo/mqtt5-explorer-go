@@ -225,8 +225,10 @@ async function sendMessage() {
       }, {} as Record<string, string>),
       responseTopic: sendForm.value.responseTopic || undefined
     })
+    store.showToast('Message sent successfully')
   } catch (error) {
     console.error('Failed to send message:', error)
+    store.showToast('Failed to send message', 'error')
   }
 }
 

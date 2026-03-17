@@ -2,21 +2,10 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useAppStore } from '../stores/app'
 import type { Settings } from '../types'
-import {
-  DialogRoot,
-  DialogTrigger,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-  DialogClose
-} from 'radix-vue'
 
 const store = useAppStore()
 
 const localSettings = ref<Settings>({ ...store.settings })
-
-const showImportDialog = ref(false)
-const importResult = ref<{ success: boolean; message: string } | null>(null)
 
 const accentColorPresets = [
   '#007AFF', // Blue
@@ -61,14 +50,13 @@ async function importConnections(event: Event) {
   try {
     const text = await file.text()
     await store.importConnections(text)
-    importResult.value = { success: true, message: 'Connections imported successfully!' }
     await store.loadConnections()
+    store.showToast('Connections imported successfully')
   } catch (error) {
     console.error('Import failed:', error)
-    importResult.value = { success: false, message: 'Failed to import connections' }
+    store.showToast('Failed to import connections', 'error')
   }
 
-  showImportDialog.value = true
   input.value = ''
 }
 
@@ -287,27 +275,6 @@ onMounted(() => {
           </div>
         </div>
       </section>
-
-      <DialogRoot v-model:open="showImportDialog">
-        <DialogContent class="dialog-content">
-          <DialogTitle class="dialog-title">
-            {{ importResult?.success ? 'Import Successful' : 'Import Failed' }}
-          </DialogTitle>
-          <DialogDescription class="dialog-description">
-            {{ importResult?.message }}
-          </DialogDescription>
-
-          <div class="form-actions">
-            <DialogClose as-child>
-              <button type="button" class="btn btn-primary">OK</button>
-            </DialogClose>
-          </div>
-
-          <DialogClose class="dialog-close">
-            <span class="mdi mdi-close"></span>
-          </DialogClose>
-        </DialogContent>
-      </DialogRoot>
     </div>
   </div>
 </template>
@@ -391,7 +358,7 @@ onMounted(() => {
 }
 
 .client-id-control .input {
-  width: 200px;
+  width: 360px;
 }
 
 .color-presets {
@@ -463,62 +430,5 @@ input:checked + .slider:before {
 
 .import-btn {
   cursor: pointer;
-}
-
-.dialog-content {
-  background: var(--color-card);
-  border-radius: 8px;
-  padding: 24px;
-  width: 400px;
-  max-width: 90vw;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-  z-index: 1000;
-}
-
-.dialog-title {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.dialog-description {
-  color: var(--color-muted-foreground);
-  font-size: 14px;
-  margin-bottom: 20px;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.dialog-close {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  border-radius: 4px;
-  color: var(--color-foreground);
-}
-
-.dialog-close:hover {
-  background: var(--color-muted);
-}
-
-.dialog-close .mdi {
-  font-size: 18px;
 }
 </style>

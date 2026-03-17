@@ -58,6 +58,9 @@ onMounted(async () => {
 
     <main class="main-content">
       <RouterView />
+      <div v-if="store.toast" class="toast" :class="store.toast.type">
+        {{ store.toast.message }}
+      </div>
       <div class="status-bar">
         <div v-if="store.currentConnection" class="connection-status">
           <span
@@ -249,6 +252,40 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   background: var(--color-background);
+}
+
+.toast {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 1000;
+  animation: slideUp 0.3s ease;
+}
+
+.toast.success {
+  background: #10b981;
+  color: white;
+}
+
+.toast.error {
+  background: #ef4444;
+  color: white;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 .status-bar {

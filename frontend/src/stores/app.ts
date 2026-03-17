@@ -61,6 +61,14 @@ export const useAppStore = defineStore('app', () => {
   const selectedMessage = ref<Message | null>(null)
   const selectedTopic = ref<string | null>(null)
   const currentClientId = ref<string>('')
+  const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null)
+
+  function showToast(message: string, type: 'success' | 'error' = 'success') {
+    toast.value = { message, type }
+    setTimeout(() => {
+      toast.value = null
+    }, 3000)
+  }
 
   EventsOn('mqtt-message', (data: string) => {
     try {
@@ -413,6 +421,8 @@ export const useAppStore = defineStore('app', () => {
     unsubscribe,
     exportConnections,
     exportConnectionsToFile,
-    importConnections
+    importConnections,
+    toast,
+    showToast
   }
 })
