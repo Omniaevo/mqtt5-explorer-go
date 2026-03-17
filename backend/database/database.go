@@ -287,6 +287,15 @@ func (d *Database) SearchConnections(ctx context.Context, query string) ([]model
 }
 
 func (d *Database) SaveMessage(ctx context.Context, msg *models.Message) (int64, error) {
+	if len(msg.Payload) == 0 {
+		_, err := d.db.ExecContext(ctx, `DELETE FROM messages WHERE connection_id = ? AND topic = ?`,
+			msg.ConnectionID, msg.Topic)
+		if err != nil {
+			return 0, err
+		}
+		return 0, nil
+	}
+
 	userPropsJSON, _ := json.Marshal(msg.UserProperties)
 
 	result, err := d.db.ExecContext(ctx, `

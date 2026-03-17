@@ -40,6 +40,28 @@ const formData = ref({
   defaultSubscriptions: '#,$SYS/#'
 })
 
+const caFileInputRef = ref<HTMLInputElement | null>(null)
+const clientCertInputRef = ref<HTMLInputElement | null>(null)
+const clientKeyInputRef = ref<HTMLInputElement | null>(null)
+
+function selectFile(field: 'caFile' | 'clientCert' | 'clientKey') {
+  if (field === 'caFile') {
+    caFileInputRef.value?.click()
+  } else if (field === 'clientCert') {
+    clientCertInputRef.value?.click()
+  } else if (field === 'clientKey') {
+    clientKeyInputRef.value?.click()
+  }
+}
+
+function handleFileChange(event: Event, field: 'caFile' | 'clientCert' | 'clientKey') {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (file) {
+    formData.value[field] = (file as any).path || file.name
+  }
+}
+
 const filteredConnections = computed(() => {
   return store.connections || []
 })
@@ -242,11 +264,11 @@ onMounted(() => {
               </div>
 
               <div class="form-row">
-                <div class="form-group">
+                <div class="form-group flex-2">
                   <label class="label">Username</label>
                   <input v-model="formData.username" type="text" class="input w-full" />
                 </div>
-                <div class="form-group">
+                <div class="form-group flex-2">
                   <label class="label">Password</label>
                   <div class="password-input">
                     <input v-model="formData.password" :type="showPassword ? 'text' : 'password'" class="input w-full" />
@@ -257,31 +279,35 @@ onMounted(() => {
                 </div>
               </div>
 
-              <div class="divider"></div>
-
               <details class="advanced-section">
-                <summary class="advanced-toggle">Advanced Settings</summary>
+                <summary class="advanced-toggle"><span class="mdi mdi-chevron-right chevron"></span> Advanced Settings</summary>
                 
                 <div class="form-group">
-                  <label class="checkbox-label">
-                    <input v-model="formData.validateCert" type="checkbox" />
-                    Validate Certificate
-                  </label>
+                  <div class="switch-row">
+                    <label class="label">Validate Certificate</label>
+                    <label class="switch">
+                      <input v-model="formData.validateCert" type="checkbox" />
+                      <span class="slider"></span>
+                    </label>
+                  </div>
                 </div>
 
                 <div class="form-group">
                   <label class="label">CA File</label>
-                  <input v-model="formData.caFile" type="text" class="input w-full" placeholder="Path to CA certificate" />
+                  <input ref="caFileInputRef" type="file" @change="handleFileChange($event, 'caFile')" hidden />
+                  <input v-model="formData.caFile" type="text" class="input w-full file-input" placeholder="Path to CA certificate" @click="selectFile('caFile')" readonly />
                 </div>
 
                 <div class="form-row">
-                  <div class="form-group">
+                  <div class="form-group flex-2">
                     <label class="label">Client Certificate</label>
-                    <input v-model="formData.clientCert" type="text" class="input w-full" placeholder="Path to client cert" />
+                    <input ref="clientCertInputRef" type="file" @change="handleFileChange($event, 'clientCert')" hidden />
+                    <input v-model="formData.clientCert" type="text" class="input w-full file-input" placeholder="Path to client cert" @click="selectFile('clientCert')" readonly />
                   </div>
-                  <div class="form-group">
+                  <div class="form-group flex-2">
                     <label class="label">Client Key</label>
-                    <input v-model="formData.clientKey" type="text" class="input w-full" placeholder="Path to client key" />
+                    <input ref="clientKeyInputRef" type="file" @change="handleFileChange($event, 'clientKey')" hidden />
+                    <input v-model="formData.clientKey" type="text" class="input w-full file-input" placeholder="Path to client key" @click="selectFile('clientKey')" readonly />
                   </div>
                 </div>
 
@@ -638,7 +664,7 @@ onMounted(() => {
   background: var(--color-card);
   border-radius: 8px;
   padding: 24px;
-  width: 480px;
+  width: 560px;
   max-width: 90vw;
   max-height: 85vh;
   overflow-y: auto;
@@ -671,6 +697,7 @@ onMounted(() => {
 .form-group {
   display: flex;
   flex-direction: column;
+  margin-bottom: 12px;
 }
 
 .form-row {
@@ -732,13 +759,38 @@ onMounted(() => {
 }
 
 .advanced-section {
-  margin-top: 8px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
 }
 
 .advanced-toggle {
   cursor: pointer;
   color: var(--color-primary);
   font-weight: 500;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  list-style: none;
+}
+
+.advanced-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-toggle .chevron {
+  font-size: 18px;
+  transition: transform 0.2s ease;
+}
+
+details[open] .advanced-toggle .chevron {
+  transform: rotate(90deg);
+}
+
+details[open] .advanced-toggle {
+  margin-bottom: 16px;
 }
 
 .form-actions {
@@ -804,5 +856,64 @@ onMounted(() => {
 
 .info-row .info-value.mono {
   font-family: monospace;
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.switch-row .label {
+  margin-bottom: 0;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--color-muted);
+  transition: 0.2s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.2s;
+  border-radius: 50%;
+}
+
+.switch input:checked + .slider {
+  background-color: var(--color-primary);
+}
+
+.switch input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+.file-input {
+  cursor: pointer;
 }
 </style>

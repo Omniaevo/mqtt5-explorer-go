@@ -216,7 +216,13 @@ function closeTopic() {
 
 function deleteTopic() {
   if (store.selectedTopic && store.currentConnectionId) {
-    window.go.main.App.Unsubscribe(store.currentConnectionId, store.selectedTopic)
+    store.sendMessage({
+      connectionId: store.currentConnectionId,
+      topic: store.selectedTopic,
+      payload: '',
+      qos: 0,
+      retain: true
+    })
     store.selectedTopic = null
     valueSearchQuery.value = ''
   }
