@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"net/url"
 	"os"
@@ -58,22 +57,18 @@ func (c *Client) UpdateSettings(settings map[string]string) {
 }
 
 func (c *Client) Connect(ctx context.Context, conn *models.Connection) error {
-	log.Printf("[MQTT] Starting connect to %s:%d", conn.Host, conn.Port)
-
 	settings := c.getSettings()
 
 	c.mu.Lock()
 	if _, exists := c.clients[conn.ID]; exists {
 		if c.connected[conn.ID] {
 			c.mu.Unlock()
-			log.Printf("[MQTT] Already connected")
 			return nil
 		}
 	}
 	c.status[conn.ID] = "connecting"
 	c.mu.Unlock()
 
-	log.Printf("[MQTT] Creating client options")
 	var clientID string
 	if dc, ok := settings["defaultClientId"]; ok && dc != "" {
 		clientID = dc
@@ -132,8 +127,6 @@ func (c *Client) Connect(ctx context.Context, conn *models.Connection) error {
 		KeepAlive:                     keepalive,
 		CleanStartOnInitialConnection: true,
 		OnConnectionUp: func(cm *autopaho.ConnectionManager, connack *paho.Connack) {
-			log.Printf("[MQTT] Connection up!")
-
 			c.mu.Lock()
 			c.connected[conn.ID] = true
 			c.status[conn.ID] = "connected"
@@ -143,8 +136,6 @@ func (c *Client) Connect(ctx context.Context, conn *models.Connection) error {
 				c.connectCB(conn.ID)
 			}
 
-			// Subscribe to default topics
-			log.Printf("[MQTT] Subscribing to default topics for connection %d", conn.ID)
 			c.subscribeToDefaults(conn)
 		},
 		ClientConfig: paho.ClientConfig{
@@ -157,33 +148,26 @@ func (c *Client) Connect(ctx context.Context, conn *models.Connection) error {
 		cfg.ConnectUsername = conn.Username
 	}
 
-	log.Printf("[MQTT] Calling autopaho.NewConnection()")
 	cm, err := autopaho.NewConnection(ctx, cfg)
 	if err != nil {
-		log.Printf("[MQTT] Connection error: %v", err)
 		c.mu.Lock()
 		c.status[conn.ID] = "error"
 		c.mu.Unlock()
 		return fmt.Errorf("connection error: %w", err)
 	}
 
-	// Store the connection manager and connection ID mapping
 	c.mu.Lock()
 	c.cmToConnID[cm] = conn.ID
 	c.mu.Unlock()
 
-	log.Printf("[MQTT] Waiting for connection to be established...")
-	// Wait for connection to be established
 	err = cm.AwaitConnection(ctx)
 	if err != nil {
-		log.Printf("[MQTT] AwaitConnection error: %v", err)
 		c.mu.Lock()
 		c.status[conn.ID] = "error"
 		c.mu.Unlock()
 		return fmt.Errorf("await connection error: %w", err)
 	}
 
-	log.Printf("[MQTT] Connection successful, storing client")
 	c.mu.Lock()
 	c.clients[conn.ID] = cm
 	c.connected[conn.ID] = true
@@ -192,30 +176,21 @@ func (c *Client) Connect(ctx context.Context, conn *models.Connection) error {
 	c.subscriptions[conn.ID] = make(map[string]byte)
 	c.mu.Unlock()
 
-	// Add message handler
-	log.Printf("[MQTT] Adding message handler for connection %d", conn.ID)
 	cm.AddOnPublishReceived(func(pr autopaho.PublishReceived) (bool, error) {
-		log.Printf("[MQTT] ★★★ OnPublishReceived triggered! Topic: %s, QoS: %d", pr.Packet.Topic, pr.Packet.QoS)
 		c.handleMessage(conn.ID, pr.Packet)
 		return true, nil
 	})
 
-	// Trigger connect callback
 	if c.connectCB != nil {
 		c.connectCB(conn.ID)
 	}
 
-	// Subscribe to default topics
-	log.Printf("[MQTT] Subscribing to default topics for connection %d", conn.ID)
 	c.subscribeToDefaults(conn)
 
-	log.Printf("[MQTT] Connect completed successfully")
 	return nil
 }
 
 func (c *Client) handleMessage(connectionID int64, publish *paho.Publish) {
-	log.Printf("[MQTT] Received message on topic: %s", publish.Topic)
-
 	message := &models.Message{
 		ConnectionID: connectionID,
 		Topic:        publish.Topic,
@@ -278,11 +253,8 @@ func (c *Client) buildBrokerURL(conn *models.Connection) string {
 
 func (c *Client) subscribeToDefaults(conn *models.Connection) {
 	if conn == nil || conn.DefaultSubscriptions == "" {
-		log.Printf("[MQTT] No default subscriptions configured")
 		return
 	}
-
-	log.Printf("[MQTT] Processing default subscriptions: %s", conn.DefaultSubscriptions)
 
 	var subs []string
 	if err := json.Unmarshal([]byte(conn.DefaultSubscriptions), &subs); err != nil {
@@ -292,10 +264,7 @@ func (c *Client) subscribeToDefaults(conn *models.Connection) {
 	for _, topic := range subs {
 		topic = strings.TrimSpace(topic)
 		if topic != "" {
-			log.Printf("[MQTT] Auto-subscribing to: %s", topic)
-			if err := c.Subscribe(conn.ID, topic, 0); err != nil {
-				log.Printf("[MQTT] Failed to subscribe to %s: %v", topic, err)
-			}
+			c.Subscribe(conn.ID, topic, 0)
 		}
 	}
 }
@@ -400,15 +369,9 @@ func (c *Client) Subscribe(connectionID int64, topic string, qos byte) error {
 	connected := c.connected[connectionID]
 	c.mu.RUnlock()
 
-	log.Printf("[MQTT] Subscribe called: connectionID=%d, topic=%s, qos=%d, exists=%v, connected=%v",
-		connectionID, topic, qos, exists, connected)
-
 	if !exists || !connected {
-		log.Printf("[MQTT] Subscribe failed: not connected or client not found")
 		return fmt.Errorf("not connected")
 	}
-
-	log.Printf("[MQTT] Subscribing to topic '%s' with QoS %d", topic, qos)
 
 	sub := &paho.Subscribe{
 		Subscriptions: []paho.SubscribeOptions{
@@ -419,15 +382,11 @@ func (c *Client) Subscribe(connectionID int64, topic string, qos byte) error {
 		},
 	}
 
-	subResp, err := cm.Subscribe(context.Background(), sub)
+	_, err := cm.Subscribe(context.Background(), sub)
 	if err != nil {
-		log.Printf("[MQTT] Subscribe error: %v", err)
 		return fmt.Errorf("subscribe error: %w", err)
 	}
 
-	log.Printf("[MQTT] Subscribe response: %+v", subResp)
-
-	// Store subscription
 	c.mu.Lock()
 	if c.subscriptions[connectionID] != nil {
 		c.subscriptions[connectionID][topic] = qos

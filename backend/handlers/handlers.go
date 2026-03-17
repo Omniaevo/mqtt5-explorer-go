@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"log"
 	"mqtt5-explorer-go/backend/database"
 	"mqtt5-explorer-go/backend/models"
 	"mqtt5-explorer-go/backend/mqtt"
@@ -179,13 +178,6 @@ func (h *Handlers) GetTopicTree(ctx context.Context, connectionID int64) (*model
 	messages, err := database.DB.GetMessagesByConnection(ctx, connectionID, 1000)
 	if err != nil {
 		return nil, err
-	}
-
-	log.Printf("[Handlers] GetTopicTree: got %d messages", len(messages))
-	for i, msg := range messages {
-		if i < 3 {
-			log.Printf("[Handlers] Message %d: topic=%s", i, msg.Topic)
-		}
 	}
 
 	return mqtt.BuildTopicTree(messages), nil
