@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type MQTTVersion int
 
@@ -37,11 +40,33 @@ type Connection struct {
 	UpdatedAt            time.Time   `json:"updatedAt"`
 }
 
+type Payload []byte
+
+func (p Payload) MarshalJSON() ([]byte, error) {
+	ints := make([]int, len(p))
+	for i, b := range p {
+		ints[i] = int(b)
+	}
+	return json.Marshal(ints)
+}
+
+func (p *Payload) UnmarshalJSON(data []byte) error {
+	var ints []int
+	if err := json.Unmarshal(data, &ints); err != nil {
+		return err
+	}
+	*p = make(Payload, len(ints))
+	for i, n := range ints {
+		(*p)[i] = byte(n)
+	}
+	return nil
+}
+
 type Message struct {
 	ID              int64             `json:"id"`
 	ConnectionID    int64             `json:"connectionId"`
 	Topic           string            `json:"topic"`
-	Payload         []byte            `json:"payload"`
+	Payload         Payload           `json:"payload"`
 	QoS             int               `json:"qos"`
 	Retain          bool              `json:"retain"`
 	Timestamp       time.Time         `json:"timestamp"`
