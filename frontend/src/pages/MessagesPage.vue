@@ -65,7 +65,7 @@ function toggleSendPanel() {
     if (isSendPanelCollapsed.value) {
       sendPanelRef.value.resize(55)
     } else {
-      sendPanelRef.value.resize(8)
+      sendPanelRef.value.resize(0)
     }
     isSendPanelCollapsed.value = !isSendPanelCollapsed.value
   }
@@ -82,6 +82,21 @@ function initSendFormFromLastMessage() {
     }
     sendForm.value.qos = lastMsg.qos
     sendForm.value.retain = lastMsg.retain
+  }
+}
+
+function loadToSendPanel(msg: Message) {
+  sendForm.value.topic = msg.topic
+  try {
+    sendForm.value.payload = new TextDecoder().decode(new Uint8Array(msg.payload))
+  } catch {
+    sendForm.value.payload = ''
+  }
+  sendForm.value.qos = msg.qos
+  sendForm.value.retain = msg.retain
+  showMessageDetailDialog.value = false
+  if (isSendPanelCollapsed.value) {
+    toggleSendPanel()
   }
 }
 
@@ -389,32 +404,32 @@ watch(() => store.messages, () => {
           placeholder="Search topics..."
         />
         <div class="search-mode-buttons">
-          <button 
-            class="search-mode-btn" 
+          <button
+            class="search-mode-btn"
             :class="{ active: topicSearchMode === 'substring' }"
             @click="topicSearchMode = 'substring'"
             title="Substring"
           >
             Aa
           </button>
-          <button 
-            class="search-mode-btn" 
+          <button
+            class="search-mode-btn"
             :class="{ active: topicSearchMode === 'case-sensitive' }"
             @click="topicSearchMode = 'case-sensitive'"
             title="Case sensitive"
           >
             A
           </button>
-          <button 
-            class="search-mode-btn" 
+          <button
+            class="search-mode-btn"
             :class="{ active: topicSearchMode === 'exact' }"
             @click="topicSearchMode = 'exact'"
             title="Exact match"
           >
             =
           </button>
-          <button 
-            class="search-mode-btn" 
+          <button
+            class="search-mode-btn"
             :class="{ active: topicSearchMode === 'regex' }"
             @click="topicSearchMode = 'regex'"
             title="Regex"
@@ -482,32 +497,32 @@ watch(() => store.messages, () => {
                   placeholder="Search in payload..."
                 />
                 <div class="search-mode-buttons">
-                  <button 
-                    class="search-mode-btn" 
+                  <button
+                    class="search-mode-btn"
                     :class="{ active: valueSearchMode === 'substring' }"
                     @click="valueSearchMode = 'substring'"
                     title="Substring"
                   >
                     Aa
                   </button>
-                  <button 
-                    class="search-mode-btn" 
+                  <button
+                    class="search-mode-btn"
                     :class="{ active: valueSearchMode === 'case-sensitive' }"
                     @click="valueSearchMode = 'case-sensitive'"
                     title="Case sensitive"
                   >
                     A
                   </button>
-                  <button 
-                    class="search-mode-btn" 
+                  <button
+                    class="search-mode-btn"
                     :class="{ active: valueSearchMode === 'exact' }"
                     @click="valueSearchMode = 'exact'"
                     title="Exact match"
                   >
                     =
                   </button>
-                  <button 
-                    class="search-mode-btn" 
+                  <button
+                    class="search-mode-btn"
                     :class="{ active: valueSearchMode === 'regex' }"
                     @click="valueSearchMode = 'regex'"
                     title="Regex"
@@ -552,13 +567,10 @@ watch(() => store.messages, () => {
 
         <SplitterResizeHandle class="splitter-handle-v" :disabled="!store.isConnected" />
 
-        <SplitterPanel ref="sendPanelRef" :minSize="8" class="send-panel-container">
+        <SplitterPanel ref="sendPanelRef" :size="0" :minSize="0" class="send-panel-container">
           <div class="send-panel" :class="{ disabled: !store.isConnected }">
-            <div class="send-panel-header" @click="store.isConnected && toggleSendPanel()">
+            <div class="send-panel-header">
               <h3>Send Message</h3>
-              <button class="btn btn-ghost btn-icon" :disabled="!store.isConnected">
-                <span class="mdi" :class="isSendPanelCollapsed ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
-              </button>
             </div>
             <div class="send-panel-content">
               <div class="form-group">
@@ -618,6 +630,16 @@ watch(() => store.messages, () => {
             </div>
           </div>
         </SplitterPanel>
+
+        <button
+          class="send-fab btn btn-icon"
+          :class="{ 'btn-primary': isSendPanelCollapsed, 'expanded': !isSendPanelCollapsed }"
+          :disabled="!store.isConnected"
+          @click="store.isConnected && toggleSendPanel()"
+          :title="isSendPanelCollapsed ? 'Send Message' : 'Close'"
+        >
+          <span class="mdi" :class="isSendPanelCollapsed ? 'mdi-send' : 'mdi-close'"></span>
+        </button>
       </SplitterGroup>
     </main>
 
@@ -657,6 +679,10 @@ watch(() => store.messages, () => {
         </div>
 
         <div class="dialog-actions">
+          <button type="button" class="btn btn-secondary" @click="loadToSendPanel(store.selectedMessage!)">
+            <span class="mdi mdi-send"></span>
+            Load to Send
+          </button>
           <DialogClose as-child>
             <button type="button" class="btn btn-primary">Close</button>
           </DialogClose>
@@ -904,6 +930,23 @@ watch(() => store.messages, () => {
   flex-direction: column;
   overflow: hidden;
   background: var(--color-secondary);
+  position: relative;
+}
+
+.send-fab {
+  position: fixed;
+  bottom: 60px;
+  right: 15px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+  flex-shrink: 0;
 }
 
 .send-panel-collapsed {
@@ -956,6 +999,10 @@ watch(() => store.messages, () => {
   font-weight: 600;
 }
 
+.send-panel-header .send-fab {
+  margin-left: auto;
+}
+
 .send-panel-content {
   flex: 1;
   padding: 16px;
@@ -968,6 +1015,31 @@ watch(() => store.messages, () => {
 .send-btn {
   flex-shrink: 0;
   margin-top: 8px;
+}
+
+.send-fab.btn-primary {
+  background-color: var(--color-primary);
+}
+
+.send-fab:not(:disabled):hover {
+  transform: scale(1.05);
+}
+
+.send-fab.expanded {
+  background-color: #ef4444;
+}
+
+.send-fab.expanded .mdi {
+  color: var(--color-primary-foreground);
+}
+
+.send-fab .mdi {
+  font-size: 20px;
+}
+
+.send-fab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .messages-header {
