@@ -33,6 +33,7 @@ const valueSearchMode = ref<SearchMode>('substring')
 const expandedNodes = ref<Set<string>>(new Set())
 const flashingTopics = ref<Set<string>>(new Set())
 const sidebarWidth = ref(350)
+const knownTopics = ref<Map<string, { count: number; level: number }>>(new Map())
 
 function startResize(e: MouseEvent) {
   document.body.style.userSelect = 'none'
@@ -73,6 +74,15 @@ function toggleSendPanel() {
     if (isSendPanelCollapsed.value) {
       sendPanelRef.value.resize(55)
     } else {
+      sendForm.value = {
+        topic: '',
+        payload: '',
+        qos: 0,
+        retain: false,
+        contentType: '',
+        userProperties: [],
+        responseTopic: ''
+      }
       sendPanelRef.value.resize(0)
     }
     isSendPanelCollapsed.value = !isSendPanelCollapsed.value
@@ -113,22 +123,25 @@ function loadToSendPanel(msg: Message) {
 
 const uniqueTopics = computed(() => {
   const topics: { topic: string; count: number; level: number }[] = []
-
-  function collectTopics(node: TopicNode, level: number = 0) {
-    if (node.fullTopic) {
-      topics.push({ topic: node.fullTopic, count: node.messageCount || 0, level })
-    }
-    if (node.children) {
-      Object.values(node.children).forEach(child => collectTopics(child, level + 1))
-    }
-  }
-
-  if (store.topicTree && store.topicTree.children) {
-    Object.values(store.topicTree.children).forEach(child => collectTopics(child, 0))
-  }
-
+  knownTopics.value.forEach((value, topic) => {
+    topics.push({ topic, count: value.count, level: value.level })
+  })
   return topics.sort((a, b) => a.topic.localeCompare(b.topic))
 })
+
+function collectTopicsFromTree(node: TopicNode, level: number = 0) {
+  if (node.fullTopic) {
+    const existing = knownTopics.value.get(node.fullTopic)
+    if (existing) {
+      existing.count = node.messageCount || 0
+    } else {
+      knownTopics.value.set(node.fullTopic, { count: node.messageCount || 0, level })
+    }
+  }
+  if (node.children) {
+    Object.values(node.children).forEach(child => collectTopicsFromTree(child, level + 1))
+  }
+}
 
 const filteredTopics = computed(() => {
   let topics = uniqueTopics.value
@@ -347,7 +360,7 @@ function triggerFlash(topic: string) {
         flashingTopics.value.delete(segments.slice(0, i).join('/'))
       }
     })
-  }, 500)
+  }, 200)
 }
 
 function handleNewMessage() {
@@ -363,14 +376,19 @@ function handleNewMessage() {
 
 onMounted(() => {
   if (store.isConnected) {
-    store.loadTopicTree()
+    store.loadTopicTree().then(() => {
+      if (store.topicTree && store.topicTree.children) {
+        Object.values(store.topicTree.children).forEach(child => collectTopicsFromTree(child, 0))
+      }
+    })
   }
 
   messageInterval = window.setInterval(() => {
     if (store.isConnected) {
       const prevCount = totalMessageCount.value
       store.loadTopicTree().then(() => {
-        if (store.topicTree) {
+        if (store.topicTree && store.topicTree.children) {
+          Object.values(store.topicTree.children).forEach(child => collectTopicsFromTree(child, 0))
           const newCount = countAllMessages(store.topicTree)
           if (newCount > prevCount && store.topicTree.lastMessage) {
             triggerFlash(store.topicTree.lastMessage.topic)
@@ -393,7 +411,12 @@ onUnmounted(() => {
 
 watch(() => store.isConnected, (connected) => {
   if (connected) {
-    store.loadTopicTree()
+    knownTopics.value.clear()
+    store.loadTopicTree().then(() => {
+      if (store.topicTree && store.topicTree.children) {
+        Object.values(store.topicTree.children).forEach(child => collectTopicsFromTree(child, 0))
+      }
+    })
   } else {
     store.selectedTopic = null
   }
@@ -875,7 +898,7 @@ watch(() => store.messages, () => {
 }
 
 .topic-row.flashing {
-  animation: flash 0.5s ease;
+  animation: flash 0.2s ease;
 }
 
 @keyframes flash {
@@ -884,7 +907,7 @@ watch(() => store.messages, () => {
 }
 
 .topic-row.active.flashing {
-  animation: flash-active 0.5s ease;
+  animation: flash-active 0.2s ease;
 }
 
 @keyframes flash-active {
