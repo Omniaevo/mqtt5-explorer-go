@@ -84,13 +84,17 @@ watch(searchQuery, (val) => {
 })
 
 watch(showDialog, (isOpen) => {
-  if (isOpen && !editingConnection.value) {
-    openNewConnection()
+  if (isOpen) {
+    if (!editingConnection.value) {
+      openNewConnection()
+    }
+  } else {
+    editingConnection.value = null
+    resetForm()
   }
 })
 
-function openNewConnection() {
-  editingConnection.value = null
+function resetForm() {
   formData.value = {
     name: '',
     mqttVersion: 4,
@@ -105,7 +109,11 @@ function openNewConnection() {
     clientKey: '',
     defaultSubscriptions: '#,$SYS/#'
   }
-  showDialog.value = true
+}
+
+function openNewConnection() {
+  editingConnection.value = null
+  resetForm()
 }
 
 function openEditConnection(conn: Connection) {
