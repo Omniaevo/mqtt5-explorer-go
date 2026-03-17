@@ -10,7 +10,8 @@ import {
   DialogRoot,
   DialogContent,
   DialogTitle,
-  DialogClose
+  DialogClose,
+  DialogOverlay
 } from 'radix-vue'
 
 const store = useAppStore()
@@ -702,6 +703,7 @@ watch(() => store.messages, () => {
     </main>
 
     <DialogRoot v-model:open="showMessageDetailDialog">
+      <DialogOverlay class="dialog-overlay" />
       <DialogContent class="dialog-content message-detail-dialog">
         <DialogTitle class="dialog-title">Message Details</DialogTitle>
 
@@ -1378,6 +1380,13 @@ watch(() => store.messages, () => {
 
 .select-topic {
   color: var(--color-muted-foreground);
+}
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
 }
 
 .dialog-content {

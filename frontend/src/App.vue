@@ -8,7 +8,8 @@ import {
   DialogContent,
   DialogTitle,
   DialogClose,
-  DialogDescription
+  DialogDescription,
+  DialogOverlay
 } from 'radix-vue'
 
 const store = useAppStore()
@@ -96,6 +97,7 @@ onMounted(async () => {
       </div>
 
       <DialogRoot v-model:open="showInfoDialog">
+        <DialogOverlay class="dialog-overlay" />
         <DialogContent class="dialog-content" v-if="store.currentConnection">
           <DialogTitle class="dialog-title">
             Connection Details
@@ -398,6 +400,13 @@ onMounted(async () => {
 
 .info-btn .mdi {
   font-size: 14px;
+}
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
 }
 
 .dialog-content {

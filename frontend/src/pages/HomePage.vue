@@ -9,7 +9,8 @@ import {
   DialogContent,
   DialogTitle,
   DialogClose,
-  DialogDescription
+  DialogDescription,
+  DialogOverlay
 } from 'radix-vue'
 
 const store = useAppStore()
@@ -221,6 +222,7 @@ onMounted(() => {
           />
         </div>
         <DialogRoot v-model:open="showDialog">
+          <DialogOverlay class="dialog-overlay" />
           <DialogTrigger as-child>
             <button class="btn btn-primary">
               <span class="mdi mdi-plus"></span>
@@ -342,6 +344,7 @@ onMounted(() => {
         </DialogRoot>
 
         <DialogRoot v-model:open="showInfoDialog">
+          <DialogOverlay class="dialog-overlay" />
           <DialogContent class="dialog-content" v-if="infoConnection">
             <DialogTitle class="dialog-title">
               Connection Details
@@ -415,6 +418,7 @@ onMounted(() => {
         </DialogRoot>
 
         <DialogRoot v-model:open="showDeleteDialog">
+          <DialogOverlay class="dialog-overlay" />
           <DialogContent class="dialog-content">
             <DialogTitle class="dialog-title">
               Delete Connection
@@ -682,6 +686,13 @@ onMounted(() => {
   transform: translate(-50%, -50%);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   z-index: 1000;
+}
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
 }
 
 .dialog-title {
