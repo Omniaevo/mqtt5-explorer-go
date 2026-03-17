@@ -94,6 +94,9 @@ function loadToSendPanel(msg: Message) {
   }
   sendForm.value.qos = msg.qos
   sendForm.value.retain = msg.retain
+  sendForm.value.contentType = msg.contentType || ''
+  sendForm.value.responseTopic = msg.responseTopic || ''
+  sendForm.value.userProperties = msg.userProperties ? Object.entries(msg.userProperties).map(([key, value]) => ({ key, value })) : []
   showMessageDetailDialog.value = false
   if (isSendPanelCollapsed.value) {
     toggleSendPanel()
@@ -664,14 +667,45 @@ watch(() => store.messages, () => {
             <span class="detail-label">Retain</span>
             <span class="detail-value">{{ store.selectedMessage.retain ? 'Yes' : 'No' }}</span>
           </div>
+          
+          <div class="detail-section-title">MQTT 5 Properties</div>
+          
+          <div v-if="store.selectedMessage.responseTopic" class="detail-row">
+            <span class="detail-label">Response Topic</span>
+            <span class="detail-value mono">{{ store.selectedMessage.responseTopic }}</span>
+          </div>
+          <div v-if="store.selectedMessage.correlationData" class="detail-row">
+            <span class="detail-label">Correlation Data</span>
+            <span class="detail-value mono">{{ formatPayload(store.selectedMessage.correlationData) }}</span>
+          </div>
+          <div v-if="store.selectedMessage.messageExpiry" class="detail-row">
+            <span class="detail-label">Message Expiry</span>
+            <span class="detail-value">{{ store.selectedMessage.messageExpiry }}s</span>
+          </div>
+          <div v-if="store.selectedMessage.topicAlias" class="detail-row">
+            <span class="detail-label">Topic Alias</span>
+            <span class="detail-value">{{ store.selectedMessage.topicAlias }}</span>
+          </div>
           <div v-if="store.selectedMessage.contentType" class="detail-row">
             <span class="detail-label">Content Type</span>
             <span class="detail-value">{{ store.selectedMessage.contentType }}</span>
           </div>
-          <div v-if="store.selectedMessage.userProperties && Object.keys(store.selectedMessage.userProperties).length > 0" class="detail-row">
-            <span class="detail-label">User Props</span>
-            <span class="detail-value">{{ JSON.stringify(store.selectedMessage.userProperties) }}</span>
+          <template v-if="store.selectedMessage.userProperties && Object.keys(store.selectedMessage.userProperties).length > 0">
+            <div class="detail-row detail-section-subtitle">
+              <span class="detail-label">User Properties</span>
+            </div>
+            <div v-for="(value, key) in store.selectedMessage.userProperties" :key="key" class="detail-row user-property-detail">
+              <span class="detail-label">{{ key }}</span>
+              <span class="detail-value">{{ value }}</span>
+            </div>
+          </template>
+          <div v-if="store.selectedMessage.clientId" class="detail-row">
+            <span class="detail-label">Client ID</span>
+            <span class="detail-value">{{ store.selectedMessage.clientId }}</span>
           </div>
+          
+          <hr class="detail-divider" />
+          
           <div class="detail-payload-container">
             <span class="detail-label">Payload</span>
             <pre class="detail-payload mono">{{ formatPayload(store.selectedMessage.payload) }}</pre>
@@ -1273,6 +1307,8 @@ watch(() => store.messages, () => {
 
 .message-detail-dialog {
   width: 700px;
+  max-height: 80vh;
+  overflow-y: auto;
 }
 
 .dialog-title {
@@ -1399,13 +1435,35 @@ watch(() => store.messages, () => {
   gap: 12px;
 }
 
+.detail-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.detail-divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 16px 0;
+}
+
+.user-property-detail {
+  padding-left: 12px;
+  font-size: 13px;
+}
+
 .detail-row {
   display: flex;
   gap: 12px;
 }
 
 .detail-label {
-  width: 100px;
+  width: 140px;
   flex-shrink: 0;
   font-weight: 500;
   color: var(--color-muted-foreground);
@@ -1414,6 +1472,39 @@ watch(() => store.messages, () => {
 .detail-value {
   flex: 1;
   word-break: break-all;
+}
+
+.detail-section-subtitle {
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-top: 4px;
+}
+
+.user-property-detail {
+  padding-left: 16px;
+}
+
+.user-property-detail .detail-label {
+  color: var(--color-muted-foreground);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.user-property-detail .detail-value {
+  font-size: 13px;
+  font-family: monospace;
+  background: var(--color-muted);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.user-property-detail .detail-label {
+  color: var(--color-muted-foreground);
+  font-size: 13px;
+}
+
+.user-property-detail .detail-value {
+  font-size: 13px;
 }
 
 .detail-payload-container {
@@ -1438,6 +1529,7 @@ watch(() => store.messages, () => {
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 12px;
   margin-top: 20px;
 }
 

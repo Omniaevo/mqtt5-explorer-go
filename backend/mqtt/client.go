@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -17,31 +18,36 @@ import (
 	"mqtt5-explorer-go/backend/database"
 	"mqtt5-explorer-go/backend/models"
 
-	"github.com/eclipse/paho.mqtt.golang"
+	"github.com/eclipse/paho.golang/autopaho"
+	"github.com/eclipse/paho.golang/paho"
 	"github.com/google/uuid"
 )
 
 type Client struct {
-	mu           sync.RWMutex
-	clients      map[int64]mqtt.Client
-	connected    map[int64]bool
-	status       map[int64]string
-	clientIds    map[int64]string
-	settings     map[string]string
-	messageChan  chan *models.Message
-	disconnectCB func(int64)
-	connectCB    func(int64)
+	mu            sync.RWMutex
+	clients       map[int64]*autopaho.ConnectionManager
+	connected     map[int64]bool
+	status        map[int64]string
+	clientIds     map[int64]string
+	settings      map[string]string
+	messageChan   chan *models.Message
+	disconnectCB  func(int64)
+	connectCB     func(int64)
+	subscriptions map[int64]map[string]byte
+	cmToConnID    map[*autopaho.ConnectionManager]int64
 }
 
 func NewClient(msgChan chan *models.Message, connectCB, disconnectCB func(int64)) *Client {
 	return &Client{
-		clients:      make(map[int64]mqtt.Client),
-		connected:    make(map[int64]bool),
-		status:       make(map[int64]string),
-		clientIds:    make(map[int64]string),
-		messageChan:  msgChan,
-		connectCB:    connectCB,
-		disconnectCB: disconnectCB,
+		clients:       make(map[int64]*autopaho.ConnectionManager),
+		connected:     make(map[int64]bool),
+		status:        make(map[int64]string),
+		clientIds:     make(map[int64]string),
+		messageChan:   msgChan,
+		connectCB:     connectCB,
+		disconnectCB:  disconnectCB,
+		subscriptions: make(map[int64]map[string]byte),
+		cmToConnID:    make(map[*autopaho.ConnectionManager]int64),
 	}
 }
 
@@ -57,15 +63,13 @@ func (c *Client) Connect(ctx context.Context, conn *models.Connection) error {
 	settings := c.getSettings()
 
 	c.mu.Lock()
-	if client, exists := c.clients[conn.ID]; exists {
+	if _, exists := c.clients[conn.ID]; exists {
 		if c.connected[conn.ID] {
 			c.mu.Unlock()
 			log.Printf("[MQTT] Already connected")
 			return nil
 		}
-		client.Disconnect(0)
 	}
-
 	c.status[conn.ID] = "connecting"
 	c.mu.Unlock()
 
@@ -92,43 +96,15 @@ func (c *Client) Connect(ctx context.Context, conn *models.Connection) error {
 	}
 
 	brokerURL := c.buildBrokerURL(conn)
-	opts := mqtt.NewClientOptions().
-		SetClientID(clientID).
-		AddBroker(brokerURL).
-		SetKeepAlive(time.Duration(keepalive) * time.Second).
-		SetConnectTimeout(time.Duration(connTimeout) * time.Second).
-		SetOnConnectHandler(func(client mqtt.Client) {
-			c.mu.Lock()
-			c.connected[conn.ID] = true
-			c.status[conn.ID] = "connected"
-			c.mu.Unlock()
-
-			if c.connectCB != nil {
-				c.connectCB(conn.ID)
-			}
-
-			c.subscribeToDefaults(client, conn)
-		}).
-		SetConnectionLostHandler(func(client mqtt.Client, err error) {
-			c.mu.Lock()
-			c.connected[conn.ID] = false
-			c.status[conn.ID] = "disconnected"
-			c.mu.Unlock()
-
-			if c.disconnectCB != nil {
-				c.disconnectCB(conn.ID)
-			}
-		})
-
-	if conn.Username != "" {
-		opts.SetUsername(conn.Username)
-	}
-	if conn.Password != "" {
-		opts.SetPassword(conn.Password)
+	serverURL, err := url.Parse(brokerURL)
+	if err != nil {
+		return fmt.Errorf("failed to parse broker URL: %w", err)
 	}
 
+	// Build TLS config if needed
+	var tlsConfig *tls.Config
 	if conn.Protocol == "mqtts" || conn.Protocol == "wss" {
-		tlsConfig := &tls.Config{
+		tlsConfig = &tls.Config{
 			InsecureSkipVerify: !conn.ValidateCert,
 		}
 
@@ -147,57 +123,142 @@ func (c *Client) Connect(ctx context.Context, conn *models.Connection) error {
 				tlsConfig.Certificates = []tls.Certificate{cert}
 			}
 		}
-
-		opts.SetTLSConfig(tlsConfig)
 	}
 
-	if conn.MQTTVersion == 5 {
-		opts.SetProtocolVersion(5)
+	cfg := autopaho.ClientConfig{
+		ServerUrls:                    []*url.URL{serverURL},
+		TlsCfg:                        tlsConfig,
+		ConnectTimeout:                time.Duration(connTimeout) * time.Second,
+		KeepAlive:                     keepalive,
+		CleanStartOnInitialConnection: true,
+		OnConnectionUp: func(cm *autopaho.ConnectionManager, connack *paho.Connack) {
+			log.Printf("[MQTT] Connection up!")
+
+			c.mu.Lock()
+			c.connected[conn.ID] = true
+			c.status[conn.ID] = "connected"
+			c.mu.Unlock()
+
+			if c.connectCB != nil {
+				c.connectCB(conn.ID)
+			}
+
+			// Subscribe to default topics
+			log.Printf("[MQTT] Subscribing to default topics for connection %d", conn.ID)
+			c.subscribeToDefaults(conn)
+		},
+		ClientConfig: paho.ClientConfig{
+			ClientID: clientID,
+		},
 	}
 
-	opts.SetAutoReconnect(true)
-	maxReconnects := 2
-	if mr, ok := settings["maxReconnects"]; ok && mr != "" {
-		fmt.Sscanf(mr, "%d", &maxReconnects)
-	}
-	if maxReconnects > 0 {
-		opts.SetMaxReconnectInterval(time.Duration(maxReconnects) * time.Second)
-	} else {
-		opts.SetMaxReconnectInterval(2 * time.Second)
+	if conn.Username != "" {
+		cfg.ConnectPassword = []byte(conn.Password)
+		cfg.ConnectUsername = conn.Username
 	}
 
-	client := mqtt.NewClient(opts)
-
-	log.Printf("[MQTT] Calling client.Connect()")
-	token := client.Connect()
-	log.Printf("[MQTT] Connect() returned, waiting for token")
-	waitTimeout := time.Duration(connTimeout) * time.Second
-	if !token.WaitTimeout(waitTimeout) {
-		log.Printf("[MQTT] Connection timeout")
-		c.mu.Lock()
-		c.status[conn.ID] = "connection_timeout"
-		c.mu.Unlock()
-		return fmt.Errorf("connection timeout after %v", waitTimeout)
-	}
-
-	if token.Error() != nil {
-		log.Printf("[MQTT] Connect error: %v", token.Error())
+	log.Printf("[MQTT] Calling autopaho.NewConnection()")
+	cm, err := autopaho.NewConnection(ctx, cfg)
+	if err != nil {
+		log.Printf("[MQTT] Connection error: %v", err)
 		c.mu.Lock()
 		c.status[conn.ID] = "error"
 		c.mu.Unlock()
-		return token.Error()
+		return fmt.Errorf("connection error: %w", err)
+	}
+
+	// Store the connection manager and connection ID mapping
+	c.mu.Lock()
+	c.cmToConnID[cm] = conn.ID
+	c.mu.Unlock()
+
+	log.Printf("[MQTT] Waiting for connection to be established...")
+	// Wait for connection to be established
+	err = cm.AwaitConnection(ctx)
+	if err != nil {
+		log.Printf("[MQTT] AwaitConnection error: %v", err)
+		c.mu.Lock()
+		c.status[conn.ID] = "error"
+		c.mu.Unlock()
+		return fmt.Errorf("await connection error: %w", err)
 	}
 
 	log.Printf("[MQTT] Connection successful, storing client")
 	c.mu.Lock()
-	c.clients[conn.ID] = client
+	c.clients[conn.ID] = cm
 	c.connected[conn.ID] = true
 	c.status[conn.ID] = "connected"
 	c.clientIds[conn.ID] = clientID
+	c.subscriptions[conn.ID] = make(map[string]byte)
 	c.mu.Unlock()
+
+	// Add message handler
+	log.Printf("[MQTT] Adding message handler for connection %d", conn.ID)
+	cm.AddOnPublishReceived(func(pr autopaho.PublishReceived) (bool, error) {
+		log.Printf("[MQTT] ★★★ OnPublishReceived triggered! Topic: %s, QoS: %d", pr.Packet.Topic, pr.Packet.QoS)
+		c.handleMessage(conn.ID, pr.Packet)
+		return true, nil
+	})
+
+	// Trigger connect callback
+	if c.connectCB != nil {
+		c.connectCB(conn.ID)
+	}
+
+	// Subscribe to default topics
+	log.Printf("[MQTT] Subscribing to default topics for connection %d", conn.ID)
+	c.subscribeToDefaults(conn)
 
 	log.Printf("[MQTT] Connect completed successfully")
 	return nil
+}
+
+func (c *Client) handleMessage(connectionID int64, publish *paho.Publish) {
+	log.Printf("[MQTT] Received message on topic: %s", publish.Topic)
+
+	message := &models.Message{
+		ConnectionID: connectionID,
+		Topic:        publish.Topic,
+		Payload:      publish.Payload,
+		QoS:          int(publish.QoS),
+		Retain:       publish.Retain,
+		Timestamp:    time.Now(),
+	}
+
+	// Extract MQTT 5 properties
+	if publish.Properties != nil {
+		if publish.Properties.ResponseTopic != "" {
+			message.ResponseTopic = publish.Properties.ResponseTopic
+		}
+		if publish.Properties.CorrelationData != nil {
+			message.CorrelationData = publish.Properties.CorrelationData
+		}
+		if publish.Properties.MessageExpiry != nil {
+			message.MessageExpiry = publish.Properties.MessageExpiry
+		}
+		if publish.Properties.TopicAlias != nil {
+			message.TopicAlias = publish.Properties.TopicAlias
+		}
+		if publish.Properties.ContentType != "" {
+			message.ContentType = publish.Properties.ContentType
+		}
+		if publish.Properties.User != nil {
+			userProps := make(map[string]string)
+			for _, prop := range publish.Properties.User {
+				userProps[prop.Key] = prop.Value
+			}
+			message.UserProperties = userProps
+		}
+	}
+
+	if database.DB != nil {
+		database.DB.SaveMessage(context.Background(), message)
+	}
+
+	select {
+	case c.messageChan <- message:
+	default:
+	}
 }
 
 func (c *Client) buildBrokerURL(conn *models.Connection) string {
@@ -215,10 +276,13 @@ func (c *Client) buildBrokerURL(conn *models.Connection) string {
 	}
 }
 
-func (c *Client) subscribeToDefaults(client mqtt.Client, conn *models.Connection) {
-	if conn.DefaultSubscriptions == "" {
+func (c *Client) subscribeToDefaults(conn *models.Connection) {
+	if conn == nil || conn.DefaultSubscriptions == "" {
+		log.Printf("[MQTT] No default subscriptions configured")
 		return
 	}
+
+	log.Printf("[MQTT] Processing default subscriptions: %s", conn.DefaultSubscriptions)
 
 	var subs []string
 	if err := json.Unmarshal([]byte(conn.DefaultSubscriptions), &subs); err != nil {
@@ -228,29 +292,10 @@ func (c *Client) subscribeToDefaults(client mqtt.Client, conn *models.Connection
 	for _, topic := range subs {
 		topic = strings.TrimSpace(topic)
 		if topic != "" {
-			client.Subscribe(topic, 0, c.createMessageHandler(conn.ID))
-		}
-	}
-}
-
-func (c *Client) createMessageHandler(connectionID int64) mqtt.MessageHandler {
-	return func(client mqtt.Client, msg mqtt.Message) {
-		message := &models.Message{
-			ConnectionID: connectionID,
-			Topic:        msg.Topic(),
-			Payload:      msg.Payload(),
-			QoS:          int(msg.Qos()),
-			Retain:       msg.Retained(),
-			Timestamp:    time.Now(),
-		}
-
-		if database.DB != nil {
-			database.DB.SaveMessage(context.Background(), message)
-		}
-
-		select {
-		case c.messageChan <- message:
-		default:
+			log.Printf("[MQTT] Auto-subscribing to: %s", topic)
+			if err := c.Subscribe(conn.ID, topic, 0); err != nil {
+				log.Printf("[MQTT] Failed to subscribe to %s: %v", topic, err)
+			}
 		}
 	}
 }
@@ -259,10 +304,13 @@ func (c *Client) Disconnect(ctx context.Context, connectionID int64) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if client, exists := c.clients[connectionID]; exists {
-		client.Disconnect(0)
+	if cm, exists := c.clients[connectionID]; exists {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		cm.Disconnect(ctx)
 		delete(c.clients, connectionID)
 		delete(c.clientIds, connectionID)
+		delete(c.subscriptions, connectionID)
 		c.connected[connectionID] = false
 		c.status[connectionID] = "disconnected"
 
@@ -278,7 +326,7 @@ func (c *Client) Disconnect(ctx context.Context, connectionID int64) error {
 
 func (c *Client) SendMessage(ctx context.Context, req *models.SendMessageRequest) error {
 	c.mu.RLock()
-	client, exists := c.clients[req.ConnectionID]
+	cm, exists := c.clients[req.ConnectionID]
 	connected := c.connected[req.ConnectionID]
 	c.mu.RUnlock()
 
@@ -286,14 +334,43 @@ func (c *Client) SendMessage(ctx context.Context, req *models.SendMessageRequest
 		return fmt.Errorf("not connected")
 	}
 
-	topic := req.Topic
-	qos := byte(req.QoS)
-	retain := req.Retain
-	payload := []byte(req.Payload)
+	publish := &paho.Publish{
+		Topic:   req.Topic,
+		QoS:     byte(req.QoS),
+		Retain:  req.Retain,
+		Payload: []byte(req.Payload),
+	}
 
-	token := client.Publish(topic, qos, retain, payload)
-	if token.WaitTimeout(10 * time.Second) {
-		return token.Error()
+	// Add MQTT 5 properties if set
+	if req.ContentType != "" || req.ResponseTopic != "" || req.CorrelationData != "" ||
+		req.MessageExpiry != nil || len(req.UserProperties) > 0 {
+
+		props := &paho.PublishProperties{}
+
+		if req.ContentType != "" {
+			props.ContentType = req.ContentType
+		}
+		if req.ResponseTopic != "" {
+			props.ResponseTopic = req.ResponseTopic
+		}
+		if req.CorrelationData != "" {
+			props.CorrelationData = []byte(req.CorrelationData)
+		}
+		if req.MessageExpiry != nil {
+			props.MessageExpiry = req.MessageExpiry
+		}
+		if len(req.UserProperties) > 0 {
+			for k, v := range req.UserProperties {
+				props.User = append(props.User, paho.UserProperty{Key: k, Value: v})
+			}
+		}
+
+		publish.Properties = props
+	}
+
+	_, err := cm.Publish(ctx, publish)
+	if err != nil {
+		return fmt.Errorf("publish error: %w", err)
 	}
 
 	return nil
@@ -319,25 +396,50 @@ func (c *Client) getSettings() map[string]string {
 
 func (c *Client) Subscribe(connectionID int64, topic string, qos byte) error {
 	c.mu.RLock()
-	client, exists := c.clients[connectionID]
+	cm, exists := c.clients[connectionID]
 	connected := c.connected[connectionID]
 	c.mu.RUnlock()
 
+	log.Printf("[MQTT] Subscribe called: connectionID=%d, topic=%s, qos=%d, exists=%v, connected=%v",
+		connectionID, topic, qos, exists, connected)
+
 	if !exists || !connected {
+		log.Printf("[MQTT] Subscribe failed: not connected or client not found")
 		return fmt.Errorf("not connected")
 	}
 
-	token := client.Subscribe(topic, qos, c.createMessageHandler(connectionID))
-	if token.WaitTimeout(10 * time.Second) {
-		return token.Error()
+	log.Printf("[MQTT] Subscribing to topic '%s' with QoS %d", topic, qos)
+
+	sub := &paho.Subscribe{
+		Subscriptions: []paho.SubscribeOptions{
+			{
+				Topic: topic,
+				QoS:   qos,
+			},
+		},
 	}
 
-	return fmt.Errorf("subscribe timeout")
+	subResp, err := cm.Subscribe(context.Background(), sub)
+	if err != nil {
+		log.Printf("[MQTT] Subscribe error: %v", err)
+		return fmt.Errorf("subscribe error: %w", err)
+	}
+
+	log.Printf("[MQTT] Subscribe response: %+v", subResp)
+
+	// Store subscription
+	c.mu.Lock()
+	if c.subscriptions[connectionID] != nil {
+		c.subscriptions[connectionID][topic] = qos
+	}
+	c.mu.Unlock()
+
+	return nil
 }
 
 func (c *Client) Unsubscribe(connectionID int64, topic string) error {
 	c.mu.RLock()
-	client, exists := c.clients[connectionID]
+	cm, exists := c.clients[connectionID]
 	connected := c.connected[connectionID]
 	c.mu.RUnlock()
 
@@ -345,10 +447,21 @@ func (c *Client) Unsubscribe(connectionID int64, topic string) error {
 		return fmt.Errorf("not connected")
 	}
 
-	token := client.Unsubscribe(topic)
-	if token.WaitTimeout(10 * time.Second) {
-		return token.Error()
+	unsub := &paho.Unsubscribe{
+		Topics: []string{topic},
 	}
+
+	_, err := cm.Unsubscribe(context.Background(), unsub)
+	if err != nil {
+		return fmt.Errorf("unsubscribe error: %w", err)
+	}
+
+	// Remove subscription
+	c.mu.Lock()
+	if c.subscriptions[connectionID] != nil {
+		delete(c.subscriptions[connectionID], topic)
+	}
+	c.mu.Unlock()
 
 	return nil
 }
@@ -495,9 +608,12 @@ func (c *Client) DisconnectAll() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	for id := range c.clients {
-		if client, exists := c.clients[id]; exists {
-			client.Disconnect(0)
+		if cm, exists := c.clients[id]; exists {
+			cm.Disconnect(ctx)
 		}
 		c.connected[id] = false
 		c.status[id] = "disconnected"
@@ -505,8 +621,9 @@ func (c *Client) DisconnectAll() {
 
 	database.DB.ClearAllMessages(context.Background())
 
-	c.clients = make(map[int64]mqtt.Client)
+	c.clients = make(map[int64]*autopaho.ConnectionManager)
 	c.clientIds = make(map[int64]string)
 	c.connected = make(map[int64]bool)
 	c.status = make(map[int64]string)
+	c.subscriptions = make(map[int64]map[string]byte)
 }

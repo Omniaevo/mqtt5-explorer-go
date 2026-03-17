@@ -75,7 +75,7 @@ type Message struct {
 	ResponseTopic   string            `json:"responseTopic,omitempty"`
 	CorrelationData []byte            `json:"correlationData,omitempty"`
 	MessageExpiry   *uint32           `json:"messageExpiry,omitempty"`
-	TopicAlias      *uint32           `json:"topicAlias,omitempty"`
+	TopicAlias      *uint16           `json:"topicAlias,omitempty"`
 	ClientID        string            `json:"clientId,omitempty"`
 }
 
