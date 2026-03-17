@@ -77,6 +77,16 @@ function selectTopic(topic: string) {
   loadChartData()
 }
 
+function clearTopic() {
+  selectedChartTopic.value = ''
+  topicSearchQuery.value = ''
+  showSuggestions.value = false
+  selectedIndex.value = -1
+  chartData.value = []
+  chartLabels.value = []
+  numericMessages.value = []
+}
+
 function flattenTree(node: any, result: { topic: string; count: number }[] = []) {
   if (node.fullTopic) {
     result.push({ topic: node.fullTopic, count: node.messageCount })
@@ -200,6 +210,12 @@ watch(() => store.isConnected, (connected) => {
     })
   }
 })
+
+watch(() => store.messages, () => {
+  if (selectedChartTopic.value) {
+    loadChartData()
+  }
+}, { deep: true })
 </script>
 
 <template>
@@ -211,17 +227,27 @@ watch(() => store.isConnected, (connected) => {
       </div>
       <div class="header-right">
         <div class="topic-autocomplete" v-if="store.isConnected">
-          <input 
-            v-model="topicSearchQuery" 
-            type="text" 
-            class="input topic-input" 
-            placeholder="Search topics..."
-            @focus="showSuggestions = true"
-            @blur="hideSuggestions"
-            @keydown.enter="selectFirstSuggestion"
-            @keydown.down.prevent="moveSelection(1)"
-            @keydown.up.prevent="moveSelection(-1)"
-          />
+          <div class="topic-input-wrapper">
+            <input 
+              v-model="topicSearchQuery" 
+              type="text" 
+              class="input topic-input" 
+              placeholder="Search topics..."
+              @focus="showSuggestions = true"
+              @blur="hideSuggestions"
+              @keydown.enter="selectFirstSuggestion"
+              @keydown.down.prevent="moveSelection(1)"
+              @keydown.up.prevent="moveSelection(-1)"
+            />
+            <button 
+              v-if="selectedChartTopic" 
+              class="btn btn-ghost btn-icon clear-btn" 
+              @click="clearTopic"
+              title="Clear"
+            >
+              <span class="mdi mdi-close"></span>
+            </button>
+          </div>
           <div v-if="showSuggestions && filteredTopicList.length > 0" class="suggestions-dropdown">
             <div 
               v-for="(item, index) in filteredTopicList" 
@@ -236,10 +262,6 @@ watch(() => store.isConnected, (connected) => {
             </div>
           </div>
         </div>
-        <button class="btn btn-secondary" @click="loadChartData" :disabled="!selectedChartTopic">
-          <span class="mdi mdi-refresh"></span>
-          Refresh
-        </button>
       </div>
     </header>
 
@@ -333,8 +355,18 @@ watch(() => store.isConnected, (connected) => {
   position: relative;
 }
 
+.topic-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .topic-input {
   width: 400px;
+}
+
+.clear-btn {
+  flex-shrink: 0;
 }
 
 .suggestions-dropdown {
