@@ -580,8 +580,8 @@ watch(() => store.messages, () => {
               </div>
             </div>
 
-            <button 
-              class="send-fab btn btn-icon" 
+            <button
+              class="send-fab btn btn-icon"
               :class="{ 'btn-primary': isSendPanelCollapsed, 'expanded': !isSendPanelCollapsed }"
               :disabled="!store.isConnected"
               @click="store.isConnected && toggleSendPanel()"
@@ -681,9 +681,9 @@ watch(() => store.messages, () => {
             <span class="detail-label">Retain</span>
             <span class="detail-value">{{ store.selectedMessage.retain ? 'Yes' : 'No' }}</span>
           </div>
-          
+
           <div class="detail-section-title">MQTT 5 Properties</div>
-          
+
           <div v-if="store.selectedMessage.responseTopic" class="detail-row">
             <span class="detail-label">Response Topic</span>
             <span class="detail-value mono">{{ store.selectedMessage.responseTopic }}</span>
@@ -717,9 +717,9 @@ watch(() => store.messages, () => {
             <span class="detail-label">Client ID</span>
             <span class="detail-value">{{ store.selectedMessage.clientId }}</span>
           </div>
-          
+
           <hr class="detail-divider" />
-          
+
           <div class="detail-payload-container">
             <span class="detail-label">Payload</span>
             <pre class="detail-payload mono">{{ formatPayload(store.selectedMessage.payload) }}</pre>
@@ -777,7 +777,6 @@ watch(() => store.messages, () => {
   align-items: center;
   justify-content: space-between;
   padding: 16px;
-  border-bottom: 1px solid var(--color-border);
 }
 
 .sidebar-header h3 {

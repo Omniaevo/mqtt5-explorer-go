@@ -41,7 +41,7 @@ async function saveSetting<K extends keyof Settings>(key: K, value: Settings[K])
 
 async function exportAllConnections() {
   if (!store.connections?.length) return
-  
+
   try {
     const ids = store.connections.map(c => c.id)
     const filePath = await store.exportConnectionsToFile(ids)
@@ -67,7 +67,7 @@ async function importConnections(event: Event) {
     console.error('Import failed:', error)
     importResult.value = { success: false, message: 'Failed to import connections' }
   }
-  
+
   showImportDialog.value = true
   input.value = ''
 }
@@ -86,15 +86,15 @@ onMounted(() => {
     <div class="settings-content">
       <section class="settings-section">
         <h2 class="section-title">Appearance</h2>
-        
+
         <div class="setting-item">
           <div class="setting-info">
             <label class="setting-label">Theme</label>
             <p class="setting-description">Choose between light and dark mode</p>
           </div>
           <div class="setting-control">
-            <select 
-              :value="localSettings.theme" 
+            <select
+              :value="localSettings.theme"
               @change="saveSetting('theme', ($event.target as HTMLSelectElement).value as 'light' | 'dark')"
               class="input"
             >
@@ -134,8 +134,8 @@ onMounted(() => {
           </div>
           <div class="setting-control">
             <label class="switch">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 :checked="localSettings.closeToTray"
                 @change="saveSetting('closeToTray', ($event.target as HTMLInputElement).checked)"
               />
@@ -150,8 +150,8 @@ onMounted(() => {
             <p class="setting-description">Maximum number of messages to cache per topic</p>
           </div>
           <div class="setting-control">
-            <input 
-              type="number" 
+            <input
+              type="number"
               :value="localSettings.maxCachedMessages"
               @change="saveSetting('maxCachedMessages', parseInt(($event.target as HTMLInputElement).value))"
               class="input number-input"
@@ -171,14 +171,14 @@ onMounted(() => {
             <p class="setting-description">Default client ID used when connecting (leave empty to auto-generate)</p>
           </div>
           <div class="setting-control client-id-control">
-            <input 
-              type="text" 
+            <input
+              type="text"
               :value="localSettings.defaultClientId"
               @change="saveSetting('defaultClientId', ($event.target as HTMLInputElement).value)"
               class="input"
               placeholder="m5g..."
             />
-            <button 
+            <button
               class="btn btn-secondary"
               @click="store.regenerateClientId(); saveSetting('defaultClientId', store.settings.defaultClientId)"
               title="Generate new ID"
@@ -194,8 +194,8 @@ onMounted(() => {
             <p class="setting-description">Keepalive interval in seconds</p>
           </div>
           <div class="setting-control">
-            <input 
-              type="number" 
+            <input
+              type="number"
               :value="localSettings.keepalive"
               @change="saveSetting('keepalive', parseInt(($event.target as HTMLInputElement).value))"
               class="input number-input"
@@ -211,8 +211,8 @@ onMounted(() => {
             <p class="setting-description">Time between reconnection attempts</p>
           </div>
           <div class="setting-control">
-            <input 
-              type="number" 
+            <input
+              type="number"
               :value="localSettings.reconnectPeriod"
               @change="saveSetting('reconnectPeriod', parseInt(($event.target as HTMLInputElement).value))"
               class="input number-input"
@@ -228,8 +228,8 @@ onMounted(() => {
             <p class="setting-description">Maximum reconnection attempts (0 = unlimited)</p>
           </div>
           <div class="setting-control">
-            <input 
-              type="number" 
+            <input
+              type="number"
               :value="localSettings.maxReconnects"
               @change="saveSetting('maxReconnects', parseInt(($event.target as HTMLInputElement).value))"
               class="input number-input"
@@ -245,8 +245,8 @@ onMounted(() => {
             <p class="setting-description">Maximum time to wait for connection</p>
           </div>
           <div class="setting-control">
-            <input 
-              type="number" 
+            <input
+              type="number"
               :value="localSettings.connectionTimeout"
               @change="saveSetting('connectionTimeout', parseInt(($event.target as HTMLInputElement).value))"
               class="input number-input"

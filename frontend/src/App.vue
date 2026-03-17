@@ -2,10 +2,10 @@
 import { ref, onMounted } from 'vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
 import { useAppStore } from './stores/app'
-import { 
-  DialogRoot, 
-  DialogTrigger, 
-  DialogContent, 
+import {
+  DialogRoot,
+  DialogTrigger,
+  DialogContent,
   DialogTitle,
   DialogClose,
   DialogDescription
@@ -34,10 +34,7 @@ onMounted(async () => {
   <div class="app-layout">
     <aside class="sidebar">
       <div class="sidebar-header">
-        <div class="app-logo">
-          <span class="mdi mdi-mqtt"></span>
-        </div>
-        <span class="app-title">MQTT Explorer</span>
+        <span class="app-title">MQTT5 Explorer</span>
       </div>
 
       <nav class="sidebar-nav">
@@ -62,7 +59,7 @@ onMounted(async () => {
       <RouterView />
       <div class="status-bar">
         <div v-if="store.currentConnection" class="connection-status">
-          <span 
+          <span
             class="status-dot"
             :class="store.isConnected ? 'connected' : 'disconnected'"
           ></span>
@@ -71,15 +68,15 @@ onMounted(async () => {
             {{ store.currentClientId }}
           </span>
           <div class="status-actions">
-            <button 
+            <button
               class="info-btn"
               @click="showInfoDialog = true"
             >
               <span class="mdi mdi-information"></span>
               Info
             </button>
-            <button 
-              v-if="store.isConnected" 
+            <button
+              v-if="store.isConnected"
               class="disconnect-btn"
               @click="store.disconnect(store.currentConnectionId!)"
             >
@@ -186,21 +183,8 @@ onMounted(async () => {
   border-bottom: 1px solid var(--color-border);
 }
 
-.app-logo {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-primary);
-  border-radius: 8px;
-  color: white;
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
 .app-title {
-  font-size: 15px;
+  font-size: 20px;
   font-weight: 600;
   color: var(--color-foreground);
 }
@@ -243,9 +227,9 @@ onMounted(async () => {
 }
 
 .sidebar-footer {
-  padding: 12px;
-  border-top: 1px solid var(--color-border);
+  padding: 8px 12px;
   text-align: center;
+  min-height: 40px;
 }
 
 .app-version {
