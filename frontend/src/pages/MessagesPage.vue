@@ -279,6 +279,16 @@ function hasChildren(topic: string): boolean {
   })
 }
 
+function getChildrenCount(topic: string): number {
+  const topicParts = topic.split('/')
+  const childTopics = uniqueTopics.value.filter(t => {
+    const tParts = t.topic.split('/')
+    return tParts.length === topicParts.length + 1 &&
+           t.topic.startsWith(topic + '/')
+  })
+  return childTopics.length
+}
+
 function getTopicIcon(topic: string, isBranch: boolean, isSelected: boolean): string {
   if (isBranch) {
     if (isSelected || isExpanded(topic)) {
@@ -432,7 +442,7 @@ watch(() => store.messages, () => {
     <aside class="topics-sidebar" :style="{ width: sidebarWidth + 'px', minWidth: sidebarWidth + 'px' }">
       <div class="sidebar-header">
         <h3>Topics</h3>
-        <span class="topic-count">{{ totalMessageCount }}</span>
+        <span class="topic-count" :title="totalMessageCount + ' total messages'"><span class="mdi mdi-message-text"></span>{{ totalMessageCount }}</span>
       </div>
       <div class="topics-search">
         <input
@@ -500,7 +510,7 @@ watch(() => store.messages, () => {
               :class="getTopicIcon(item.topic, hasChildren(item.topic), store.selectedTopic === item.topic)"
             ></span>
             <span class="topic-name truncate" @click="selectTopic(item.topic)">{{ getLastSegment(item.topic) }}</span>
-            <span class="badge badge-default">{{ item.count }}</span>
+            <span v-if="hasChildren(item.topic)" class="badge badge-default" :title="getChildrenCount(item.topic) + ' sub-topics'"><span class="mdi mdi-file-tree"></span>{{ getChildrenCount(item.topic) }}</span>
           </div>
         </template>
         <div v-if="filteredTopics.length === 0" class="empty-topics">
@@ -810,12 +820,18 @@ watch(() => store.messages, () => {
 }
 
 .topic-count {
-  background: var(--color-primary);
-  color: white;
+  font-size: 11px;
+  padding: 1px 6px;
+  background: var(--color-muted);
+  border-radius: 8px;
+  color: var(--color-muted-foreground);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.topic-count .mdi {
   font-size: 12px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
 }
 
 .topics-search {
@@ -946,6 +962,32 @@ watch(() => store.messages, () => {
   border-radius: 8px;
   color: var(--color-muted-foreground);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge .mdi {
+  font-size: 12px;
+}
+
+.topic-count {
+  font-size: 11px;
+  padding: 1px 6px;
+  background: var(--color-muted);
+  border-radius: 8px;
+  color: var(--color-muted-foreground);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topic-count .mdi {
+  font-size: 12px;
+}
+
+.badge .mdi {
+  font-size: 12px;
 }
 
 .empty-topics {
@@ -1294,7 +1336,7 @@ watch(() => store.messages, () => {
   font-size: 12px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 
 .message-time {
