@@ -530,11 +530,12 @@ watch(() => store.messages, () => {
                   class="message-item"
                   @click="showMessageDetail(msg)"
                 >
-                  <div class="message-header">
-                    <span class="message-topic truncate">{{ msg.topic }}</span>
-                    <span class="message-time text-muted text-sm">{{ formatTime(msg.timestamp) }}</span>
+                  <div class="message-payload mono truncate">{{ formatPayload(msg.payload).slice(0, 150) }}</div>
+                  <div class="message-topic-caption truncate text-muted text-sm">
+                    <span class="mdi mdi-topic"></span>
+                    {{ msg.topic }}
+                    <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
                   </div>
-                  <div class="message-preview mono truncate">{{ formatPayload(msg.payload).slice(0, 100) }}</div>
                 </div>
                 <div v-if="!filteredMessages.length" class="empty-messages">
                   <span class="text-muted">No messages found</span>
@@ -1132,19 +1133,23 @@ watch(() => store.messages, () => {
   border-color: var(--color-primary);
 }
 
-.message-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
+.message-payload {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-foreground);
+  margin-bottom: 6px;
 }
 
-.message-topic {
-  font-weight: 500;
-  font-size: 13px;
+.message-topic-caption {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .message-time {
-  font-size: 12px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .message-preview {
