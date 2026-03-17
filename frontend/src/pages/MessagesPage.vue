@@ -575,7 +575,7 @@ watch(() => store.messages, () => {
           </div>
         </SplitterPanel>
 
-        <SplitterResizeHandle class="splitter-handle-v" :disabled="!store.isConnected" />
+        <SplitterResizeHandle class="splitter-handle-v" :disabled="!store.isConnected || isSendPanelCollapsed" />
 
         <SplitterPanel ref="sendPanelRef" :size="0" :minSize="0" class="send-panel-container">
           <div class="send-panel" :class="{ disabled: !store.isConnected }">
