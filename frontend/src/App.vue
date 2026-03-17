@@ -19,8 +19,8 @@ const showInfoDialog = ref(false)
 
 const navItems = [
   { name: 'Home', path: '/', icon: 'mdi-home' },
-  { name: 'Messages', path: '/messages', icon: 'mdi-message-text' },
-  { name: 'Charts', path: '/charts', icon: 'mdi-chart-line' },
+  { name: 'Messages', path: '/messages', icon: 'mdi-message-text', requiresConnection: true },
+  { name: 'Charts', path: '/charts', icon: 'mdi-chart-line', requiresConnection: true },
   { name: 'Settings', path: '/settings', icon: 'mdi-cog' }
 ]
 
@@ -43,9 +43,10 @@ onMounted(async () => {
           :key="item.path"
           :to="item.path"
           class="nav-item"
-          :class="{ active: route.path === item.path }"
+          :class="{ active: route.path === item.path, disabled: item.requiresConnection && !store.isConnected }"
+          :style="{ pointerEvents: item.requiresConnection && !store.isConnected ? 'none' : 'auto' }"
         >
-          <span class="mdi" :class="item.icon"></span>
+          <span class="mdi" :class="item.requiresConnection && !store.isConnected ? 'mdi-link-off' : item.icon"></span>
           <span class="nav-label">{{ item.name }}</span>
         </router-link>
       </nav>
@@ -215,6 +216,11 @@ onMounted(async () => {
 .nav-item.active {
   background: var(--color-primary);
   color: white;
+}
+
+.nav-item.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .nav-item .mdi {
