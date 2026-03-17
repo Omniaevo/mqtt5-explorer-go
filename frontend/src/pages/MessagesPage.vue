@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
 import type { Message, TopicNode } from '../types'
 import {
@@ -13,6 +14,13 @@ import {
 } from 'radix-vue'
 
 const store = useAppStore()
+const router = useRouter()
+
+function openInChart() {
+  if (store.selectedTopic) {
+    router.push({ path: '/charts', query: { topic: store.selectedTopic } })
+  }
+}
 
 const showMessageDetailDialog = ref(false)
 
@@ -488,6 +496,9 @@ watch(() => store.messages, () => {
                     {{ store.messages?.length || 0 }} messages
                   </span>
                 </div>
+                <button v-if="store.selectedTopic" class="btn btn-ghost btn-icon" @click="openInChart" title="Open in Chart">
+                  <span class="mdi mdi-chart-line"></span>
+                </button>
                 <button v-if="store.selectedTopic" class="btn btn-ghost btn-icon" @click="closeTopic" title="Close">
                   <span class="mdi mdi-close"></span>
                 </button>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAppStore } from '../stores/app'
 import { Line } from 'vue-chartjs'
 import {
@@ -27,15 +28,23 @@ ChartJS.register(
 )
 
 const store = useAppStore()
+const route = useRoute()
 
 const selectedChartTopic = ref('')
 const chartData = ref<number[]>([])
 const chartLabels = ref<string[]>([])
 const numericMessages = ref<Message[]>([])
+const topicSearchQuery = ref('')
 
 const topicList = computed(() => {
   if (!store.topicTree) return []
   return flattenTree(store.topicTree)
+})
+
+const filteredTopicList = computed(() => {
+  if (!topicSearchQuery.value) return topicList.value
+  const query = topicSearchQuery.value.toLowerCase()
+  return topicList.value.filter(t => t.topic.toLowerCase().includes(query))
 })
 
 function flattenTree(node: any, result: { topic: string; count: number }[] = []) {
@@ -139,8 +148,17 @@ watch(selectedChartTopic, () => {
 })
 
 onMounted(() => {
+  if (route.query.topic && typeof route.query.topic === 'string') {
+    selectedChartTopic.value = route.query.topic
+  }
   if (store.isConnected) {
-    store.loadTopicTree()
+    store.loadTopicTree().then(() => {
+      if (route.query.topic && selectedChartTopic.value) {
+        loadChartData()
+      } else if (topicList.value.length > 0) {
+        selectedChartTopic.value = topicList.value[0].topic
+      }
+    })
   }
 })
 
@@ -163,12 +181,21 @@ watch(() => store.isConnected, (connected) => {
         <span class="text-muted text-sm">Visualize numeric MQTT messages</span>
       </div>
       <div class="header-right">
-        <select v-model="selectedChartTopic" class="input" :disabled="!store.isConnected">
-          <option value="">Select a topic</option>
-          <option v-for="item in topicList" :key="item.topic" :value="item.topic">
-            {{ item.topic }} ({{ item.count }})
-          </option>
-        </select>
+        <div class="topic-selector">
+          <input 
+            v-model="topicSearchQuery" 
+            type="text" 
+            class="input topic-search" 
+            placeholder="Search topics..."
+            :disabled="!store.isConnected"
+          />
+          <select v-model="selectedChartTopic" class="input topic-select" :disabled="!store.isConnected">
+            <option value="">Select a topic</option>
+            <option v-for="item in filteredTopicList" :key="item.topic" :value="item.topic">
+              {{ item.topic }} ({{ item.count }})
+            </option>
+          </select>
+        </div>
         <button class="btn btn-secondary" @click="loadChartData" :disabled="!selectedChartTopic">
           <span class="mdi mdi-refresh"></span>
           Refresh
@@ -260,6 +287,20 @@ watch(() => store.isConnected, (connected) => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.topic-selector {
+  display: flex;
+  flex-direction: column;
+}
+
+.topic-search {
+  width: 200px;
+  margin-bottom: 4px;
+}
+
+.topic-select {
+  width: 300px;
 }
 
 .charts-content {
