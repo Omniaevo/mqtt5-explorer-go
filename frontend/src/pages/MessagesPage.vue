@@ -557,6 +557,7 @@ watch(() => store.messages, () => {
                   v-for="(msg, index) in filteredMessages"
                   :key="index"
                   class="message-item"
+                  :class="{ 'message-new': index === 0 }"
                   @click="showMessageDetail(msg)"
                 >
                   <div class="message-payload mono truncate">{{ formatPayload(msg.payload).slice(0, 150) }}</div>
@@ -1249,6 +1250,11 @@ watch(() => store.messages, () => {
 
 .message-item:hover {
   border-color: var(--color-primary);
+}
+
+.message-new {
+  border-color: var(--color-primary);
+  background: var(--color-muted);
 }
 
 .message-payload {
