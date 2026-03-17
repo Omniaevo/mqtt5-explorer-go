@@ -47,6 +47,36 @@ const filteredTopicList = computed(() => {
   return topicList.value.filter(t => t.topic.toLowerCase().includes(query))
 })
 
+const showSuggestions = ref(false)
+const selectedIndex = ref(-1)
+
+function hideSuggestions() {
+  setTimeout(() => {
+    showSuggestions.value = false
+    selectedIndex.value = -1
+  }, 200)
+}
+
+function selectFirstSuggestion() {
+  if (filteredTopicList.value.length > 0) {
+    selectTopic(filteredTopicList.value[0].topic)
+    showSuggestions.value = false
+  }
+}
+
+function moveSelection(delta: number) {
+  const max = filteredTopicList.value.length - 1
+  selectedIndex.value = Math.max(-1, Math.min(max, selectedIndex.value + delta))
+}
+
+function selectTopic(topic: string) {
+  selectedChartTopic.value = topic
+  topicSearchQuery.value = topic
+  showSuggestions.value = false
+  selectedIndex.value = -1
+  loadChartData()
+}
+
 function flattenTree(node: any, result: { topic: string; count: number }[] = []) {
   if (node.fullTopic) {
     result.push({ topic: node.fullTopic, count: node.messageCount })
@@ -150,15 +180,14 @@ watch(selectedChartTopic, () => {
 onMounted(() => {
   if (route.query.topic && typeof route.query.topic === 'string') {
     selectedChartTopic.value = route.query.topic
-  }
-  if (store.isConnected) {
-    store.loadTopicTree().then(() => {
-      if (route.query.topic && selectedChartTopic.value) {
+    topicSearchQuery.value = route.query.topic
+    if (store.isConnected) {
+      store.loadTopicTree().then(() => {
         loadChartData()
-      } else if (topicList.value.length > 0) {
-        selectedChartTopic.value = topicList.value[0].topic
-      }
-    })
+      })
+    }
+  } else if (store.isConnected) {
+    store.loadTopicTree()
   }
 })
 
@@ -181,20 +210,31 @@ watch(() => store.isConnected, (connected) => {
         <span class="text-muted text-sm">Visualize numeric MQTT messages</span>
       </div>
       <div class="header-right">
-        <div class="topic-selector">
+        <div class="topic-autocomplete" v-if="store.isConnected">
           <input 
             v-model="topicSearchQuery" 
             type="text" 
-            class="input topic-search" 
+            class="input topic-input" 
             placeholder="Search topics..."
-            :disabled="!store.isConnected"
+            @focus="showSuggestions = true"
+            @blur="hideSuggestions"
+            @keydown.enter="selectFirstSuggestion"
+            @keydown.down.prevent="moveSelection(1)"
+            @keydown.up.prevent="moveSelection(-1)"
           />
-          <select v-model="selectedChartTopic" class="input topic-select" :disabled="!store.isConnected">
-            <option value="">Select a topic</option>
-            <option v-for="item in filteredTopicList" :key="item.topic" :value="item.topic">
-              {{ item.topic }} ({{ item.count }})
-            </option>
-          </select>
+          <div v-if="showSuggestions && filteredTopicList.length > 0" class="suggestions-dropdown">
+            <div 
+              v-for="(item, index) in filteredTopicList" 
+              :key="item.topic"
+              class="suggestion-item"
+              :class="{ active: selectedIndex === index }"
+              @mousedown="selectTopic(item.topic)"
+              @mouseenter="selectedIndex = index"
+            >
+              <span class="suggestion-topic">{{ item.topic }}</span>
+              <span class="suggestion-count">{{ item.count }} msgs</span>
+            </div>
+          </div>
         </div>
         <button class="btn btn-secondary" @click="loadChartData" :disabled="!selectedChartTopic">
           <span class="mdi mdi-refresh"></span>
@@ -289,18 +329,54 @@ watch(() => store.isConnected, (connected) => {
   gap: 12px;
 }
 
-.topic-selector {
+.topic-autocomplete {
+  position: relative;
+}
+
+.topic-input {
+  width: 400px;
+}
+
+.suggestions-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: max-content;
+  min-width: 100%;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.suggestion-item {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
 }
 
-.topic-search {
-  width: 200px;
-  margin-bottom: 4px;
+.suggestion-item:hover,
+.suggestion-item.active {
+  background: var(--color-muted);
 }
 
-.topic-select {
-  width: 300px;
+.suggestion-topic {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestion-count {
+  font-size: 12px;
+  color: var(--color-muted-foreground);
+  margin-left: 12px;
 }
 
 .charts-content {
