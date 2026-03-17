@@ -258,7 +258,6 @@ watch(() => store.messages, () => {
               @mouseenter="selectedIndex = index"
             >
               <span class="suggestion-topic">{{ item.topic }}</span>
-              <span class="suggestion-count">{{ item.count }} msgs</span>
             </div>
           </div>
         </div>
@@ -405,12 +404,6 @@ watch(() => store.messages, () => {
   white-space: nowrap;
 }
 
-.suggestion-count {
-  font-size: 12px;
-  color: var(--color-muted-foreground);
-  margin-left: 12px;
-}
-
 .charts-content {
   flex: 1;
   overflow: auto;
@@ -438,10 +431,11 @@ watch(() => store.messages, () => {
 }
 
 .chart-container {
-  display: grid;
-  grid-template-columns: 1fr 280px;
+  display: flex;
+  flex-direction: column;
   gap: 24px;
   height: 100%;
+  overflow-y: auto;
 }
 
 .chart-card {
@@ -451,6 +445,8 @@ watch(() => store.messages, () => {
   padding: 20px;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 400px;
 }
 
 .chart-title {
@@ -494,21 +490,25 @@ watch(() => store.messages, () => {
 
 .stats-grid {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .stat-item {
+  flex: 1;
+  min-width: 120px;
   display: flex;
-  justify-content: space-between;
-  padding: 10px 12px;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
   background: var(--color-secondary);
   border-radius: 6px;
 }
 
 .stat-label {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--color-muted-foreground);
+  margin-bottom: 4px;
 }
 
 .stat-value {
