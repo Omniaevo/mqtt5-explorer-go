@@ -32,7 +32,7 @@ const valueSearchQuery = ref('')
 const valueSearchMode = ref<SearchMode>('substring')
 const expandedNodes = ref<Set<string>>(new Set())
 const flashingTopics = ref<Set<string>>(new Set())
-const sidebarWidth = ref(280)
+const sidebarWidth = ref(350)
 
 function startResize(e: MouseEvent) {
   document.body.style.userSelect = 'none'
@@ -392,6 +392,8 @@ onUnmounted(() => {
 watch(() => store.isConnected, (connected) => {
   if (connected) {
     store.loadTopicTree()
+  } else {
+    store.selectedTopic = null
   }
 })
 
