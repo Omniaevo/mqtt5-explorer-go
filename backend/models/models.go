@@ -123,7 +123,7 @@ func DefaultSettings() Settings {
 		Theme:             "light",
 		AccentColor:       "#007AFF",
 		CloseToTray:       true,
-		MaxCachedMessages: 7,
+		MaxCachedMessages: 42,
 		DefaultClientID:   "",
 		Keepalive:         120,
 		ReconnectPeriod:   2,
