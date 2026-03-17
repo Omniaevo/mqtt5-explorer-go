@@ -562,6 +562,16 @@ watch(() => store.messages, () => {
                 <p class="text-muted">Choose a topic from the sidebar to view messages</p>
               </div>
             </div>
+
+            <button 
+              class="send-fab btn btn-icon" 
+              :class="{ 'btn-primary': isSendPanelCollapsed, 'expanded': !isSendPanelCollapsed }"
+              :disabled="!store.isConnected"
+              @click="store.isConnected && toggleSendPanel()"
+              :title="isSendPanelCollapsed ? 'Send Message' : 'Close'"
+            >
+              <span class="mdi" :class="isSendPanelCollapsed ? 'mdi-send' : 'mdi-close'"></span>
+            </button>
           </div>
         </SplitterPanel>
 
@@ -630,16 +640,6 @@ watch(() => store.messages, () => {
             </div>
           </div>
         </SplitterPanel>
-
-        <button
-          class="send-fab btn btn-icon"
-          :class="{ 'btn-primary': isSendPanelCollapsed, 'expanded': !isSendPanelCollapsed }"
-          :disabled="!store.isConnected"
-          @click="store.isConnected && toggleSendPanel()"
-          :title="isSendPanelCollapsed ? 'Send Message' : 'Close'"
-        >
-          <span class="mdi" :class="isSendPanelCollapsed ? 'mdi-send' : 'mdi-close'"></span>
-        </button>
       </SplitterGroup>
     </main>
 
@@ -905,6 +905,7 @@ watch(() => store.messages, () => {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 .splitter-handle-v {
@@ -934,9 +935,9 @@ watch(() => store.messages, () => {
 }
 
 .send-fab {
-  position: fixed;
-  bottom: 60px;
-  right: 15px;
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
   width: 40px;
   height: 40px;
   border-radius: 50%;
