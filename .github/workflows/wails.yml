@@ -27,7 +27,7 @@ jobs:
             platform: 'windows/amd64'
             os: 'windows-latest'
           - name: 'MacOS'
-            artifact: 'mqtt5-explorer-go-darwin-universal'
+            artifact: 'mqtt5-explorer-go'
             platform: 'darwin/universal' # builds fat binary for arm64 + amd64
             os: 'macos-latest'
 
