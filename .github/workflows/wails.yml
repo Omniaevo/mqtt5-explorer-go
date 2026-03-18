@@ -44,7 +44,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build
-        uses: snider/build@v3  # v3 uses upload-artifact@v4 internally
+        uses: snider/build/actions/build/wails2@v3  # v3 uses upload-artifact@v4 internally
         with:
           build-name: ${{ matrix.build.name }}
           build-platform: ${{ matrix.build.platform }}
