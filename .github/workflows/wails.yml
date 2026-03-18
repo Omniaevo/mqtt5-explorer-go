@@ -19,15 +19,15 @@ jobs:
       matrix:
         build:
           - name: 'Linux'
-            artifact: 'mqtt5-explorer-go'
+            artifact: 'mqtt5-explorer-go-linux-amd64'
             platform: 'linux/amd64'
             os: 'ubuntu-latest'
           - name: 'Windows'
-            artifact: 'mqtt5-explorer-go'
+            artifact: 'mqtt5-explorer-go-windows-amd64'
             platform: 'windows/amd64'
             os: 'windows-latest'
           - name: 'MacOS'
-            artifact: 'mqtt5-explorer-go'
+            artifact: 'mqtt5-explorer-go-darwin-universal'
             platform: 'darwin/universal' # builds fat binary for arm64 + amd64
             os: 'macos-latest'
 

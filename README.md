@@ -16,6 +16,14 @@ The aim of this project is to bring the users a client app capable of making use
 
 ![Client screenshot (light theme)](screenshots/client-connection-white.png)
 
+## Downloads
+
+<p>
+  <a href='https://github.com/Omniaevo/mqtt5-explorer-go/releases'>
+    <img width='150' alt='Download on Github' src='https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white'/>
+  </a>
+</p>
+
 ## Project setup
 
 You can configure the project by editing `wails.json`. More information about the project settings can be found here: [https://wails.io/docs/reference/project-config](https://wails.io/docs/reference/project-config)
