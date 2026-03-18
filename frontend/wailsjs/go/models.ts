@@ -14,6 +14,9 @@ export namespace models {
 	    clientCert?: string;
 	    clientKey?: string;
 	    defaultSubscriptions?: string;
+	    favourite: boolean;
+	    // Go type: time
+	    lastConnected: any;
 	    // Go type: time
 	    createdAt: any;
 	    // Go type: time
@@ -38,6 +41,8 @@ export namespace models {
 	        this.clientCert = source["clientCert"];
 	        this.clientKey = source["clientKey"];
 	        this.defaultSubscriptions = source["defaultSubscriptions"];
+	        this.favourite = source["favourite"];
+	        this.lastConnected = this.convertValues(source["lastConnected"], null);
 	        this.createdAt = this.convertValues(source["createdAt"], null);
 	        this.updatedAt = this.convertValues(source["updatedAt"], null);
 	    }

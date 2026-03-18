@@ -12,6 +12,8 @@ export interface Connection {
   clientCert?: string
   clientKey?: string
   defaultSubscriptions?: string
+  favourite: boolean
+  lastConnected?: string
   createdAt: string
   updatedAt: string
 }

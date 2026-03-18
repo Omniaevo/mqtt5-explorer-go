@@ -20,6 +20,7 @@ declare global {
           ExportConnections: (ids: number[]) => Promise<string>
           ExportConnectionsToFile: (ids: number[]) => Promise<string>
           ImportConnections: (jsonData: string) => Promise<number[]>
+          ImportFromOldVersion: (jsonData: string) => Promise<number>
           Connect: (id: number) => Promise<void>
           Disconnect: (id: number) => Promise<void>
           GetConnectionStatus: (id: number) => Promise<[boolean, string]>
@@ -380,6 +381,16 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+  async function importFromOldVersion(jsonData: string): Promise<number> {
+    try {
+      const imported = await window.go.main.App.ImportFromOldVersion(jsonData)
+      return imported as number
+    } catch (error) {
+      console.error('Failed to import connections from old version:', error)
+      throw error
+    }
+  }
+
   function generateClientId(): string {
     return 'm5g-' + crypto.randomUUID()
   }
@@ -422,6 +433,7 @@ export const useAppStore = defineStore('app', () => {
     exportConnections,
     exportConnectionsToFile,
     importConnections,
+    importFromOldVersion,
     toast,
     showToast
   }

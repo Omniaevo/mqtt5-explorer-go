@@ -38,6 +38,8 @@ export function GetTopicTree(arg1:number):Promise<models.TopicNode>;
 
 export function ImportConnections(arg1:string):Promise<Array<number>>;
 
+export function ImportFromOldVersion(arg1:string):Promise<number>;
+
 export function SearchConnections(arg1:string):Promise<Array<models.Connection>>;
 
 export function SearchMessages(arg1:number,arg2:string,arg3:boolean):Promise<Array<models.Message>>;

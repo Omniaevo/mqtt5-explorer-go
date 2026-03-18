@@ -195,6 +195,10 @@ func (a *App) ImportConnections(jsonData string) ([]int64, error) {
 	return h.ImportConnections(context.Background(), jsonData)
 }
 
+func (a *App) ImportFromOldVersion(jsonData string) (int, error) {
+	return h.ImportFromOldVersion(context.Background(), jsonData)
+}
+
 func (a *App) Connect(id int64) error {
 	return h.Connect(context.Background(), id)
 }

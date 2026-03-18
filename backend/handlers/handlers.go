@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"mqtt5-explorer-go/backend/database"
 	"mqtt5-explorer-go/backend/models"
 	"mqtt5-explorer-go/backend/mqtt"
+	"strings"
 )
 
 type Handlers struct {
@@ -80,6 +82,95 @@ func (h *Handlers) ImportConnections(ctx context.Context, jsonData string) ([]in
 	return ids, nil
 }
 
+type OldConnection struct {
+	ID                  string   `json:"id"`
+	Name                string   `json:"name"`
+	Protocol            string   `json:"protocol"`
+	Version             int      `json:"version"`
+	Port                any      `json:"port"`
+	ValidateCertificate bool     `json:"validateCertificate"`
+	Topics              []string `json:"topics"`
+	Host                string   `json:"host"`
+	Username            string   `json:"username"`
+	Password            string   `json:"password"`
+	TLS                 bool     `json:"tls"`
+	CACert              string   `json:"caCert"`
+	ClientCert          string   `json:"clientCert"`
+	ClientKey           string   `json:"clientKey"`
+	CACertPath          string   `json:"caCertPath"`
+	ClientCertPath      string   `json:"clientCertPath"`
+	ClientKeyPath       string   `json:"clientKeyPath"`
+}
+
+func (h *Handlers) ImportFromOldVersion(ctx context.Context, jsonData string) (int, error) {
+	var connections []OldConnection
+	if err := json.Unmarshal([]byte(jsonData), &connections); err != nil {
+		return 0, err
+	}
+
+	count := 0
+	for _, oldConn := range connections {
+		protocol := oldConn.Protocol
+		if oldConn.TLS {
+			protocol = "mqtts"
+		}
+
+		port := 1883
+		switch v := oldConn.Port.(type) {
+		case float64:
+			port = int(v)
+		case string:
+			fmt.Sscanf(v, "%d", &port)
+		}
+
+		mqttVersion := 5
+		if oldConn.Version == 4 {
+			mqttVersion = 4
+		}
+
+		topics := ""
+		if len(oldConn.Topics) > 0 {
+			topics = strings.Join(oldConn.Topics, ",")
+		}
+
+		caFile := oldConn.CACertPath
+		if caFile == "" {
+			caFile = oldConn.CACert
+		}
+		clientCert := oldConn.ClientCertPath
+		if clientCert == "" {
+			clientCert = oldConn.ClientCert
+		}
+		clientKey := oldConn.ClientKeyPath
+		if clientKey == "" {
+			clientKey = oldConn.ClientKey
+		}
+
+		conn := &models.Connection{
+			Name:                 oldConn.Name,
+			MQTTVersion:          models.MQTTVersion(mqttVersion),
+			Protocol:             models.Protocol(protocol),
+			Host:                 oldConn.Host,
+			Port:                 port,
+			Username:             oldConn.Username,
+			Password:             oldConn.Password,
+			ValidateCert:         oldConn.ValidateCertificate,
+			CAFile:               caFile,
+			ClientCert:           clientCert,
+			ClientKey:            clientKey,
+			DefaultSubscriptions: topics,
+			Favourite:            false,
+		}
+
+		_, err := database.DB.CreateConnection(ctx, conn)
+		if err == nil {
+			count++
+		}
+	}
+
+	return count, nil
+}
+
 func NewHandlers(mqttClient *mqtt.Client) *Handlers {
 	return &Handlers{
 		mqttClient: mqttClient,
@@ -131,7 +222,11 @@ func (h *Handlers) Connect(ctx context.Context, id int64) error {
 		return err
 	}
 
-	return h.mqttClient.Connect(ctx, conn)
+	err = h.mqttClient.Connect(ctx, conn)
+	if err == nil {
+		database.DB.UpdateLastConnected(ctx, id)
+	}
+	return err
 }
 
 func (h *Handlers) Disconnect(ctx context.Context, id int64) error {

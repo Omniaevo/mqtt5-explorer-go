@@ -53,7 +53,7 @@ onMounted(async () => {
       </nav>
 
       <div class="sidebar-footer">
-        <span class="app-version">v1.0.0</span>
+        <span class="app-version">v2.0.0</span>
       </div>
     </aside>
 

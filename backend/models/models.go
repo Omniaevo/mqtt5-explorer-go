@@ -36,6 +36,8 @@ type Connection struct {
 	ClientCert           string      `json:"clientCert,omitempty"`
 	ClientKey            string      `json:"clientKey,omitempty"`
 	DefaultSubscriptions string      `json:"defaultSubscriptions,omitempty"`
+	Favourite            bool        `json:"favourite"`
+	LastConnected        time.Time   `json:"lastConnected"`
 	CreatedAt            time.Time   `json:"createdAt"`
 	UpdatedAt            time.Time   `json:"updatedAt"`
 }

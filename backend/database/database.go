@@ -72,6 +72,8 @@ func (d *Database) createTables() error {
 		client_cert TEXT,
 		client_key TEXT,
 		default_subscriptions TEXT,
+		favourite INTEGER DEFAULT 0,
+		last_connected TEXT,
 		created_at TEXT NOT NULL,
 		updated_at TEXT NOT NULL
 	);
@@ -169,10 +171,10 @@ func (d *Database) CreateConnection(ctx context.Context, conn *models.Connection
 
 	result, err := d.db.ExecContext(ctx, `
 		INSERT INTO connections (name, mqtt_version, protocol, host, port, username, password, 
-			validate_cert, ca_file, client_cert, client_key, default_subscriptions, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			validate_cert, ca_file, client_cert, client_key, default_subscriptions, favourite, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		conn.Name, conn.MQTTVersion, conn.Protocol, conn.Host, conn.Port, conn.Username, conn.Password,
-		conn.ValidateCert, conn.CAFile, conn.ClientCert, conn.ClientKey, conn.DefaultSubscriptions,
+		conn.ValidateCert, conn.CAFile, conn.ClientCert, conn.ClientKey, conn.DefaultSubscriptions, conn.Favourite,
 		conn.CreatedAt.Format(time.RFC3339), conn.UpdatedAt.Format(time.RFC3339))
 	if err != nil {
 		return 0, err
@@ -187,10 +189,10 @@ func (d *Database) UpdateConnection(ctx context.Context, conn *models.Connection
 	_, err := d.db.ExecContext(ctx, `
 		UPDATE connections SET name = ?, mqtt_version = ?, protocol = ?, host = ?, port = ?,
 			username = ?, password = ?, validate_cert = ?, ca_file = ?, client_cert = ?, client_key = ?,
-			default_subscriptions = ?, updated_at = ?
+			default_subscriptions = ?, favourite = ?, updated_at = ?
 		WHERE id = ?`,
 		conn.Name, conn.MQTTVersion, conn.Protocol, conn.Host, conn.Port, conn.Username, conn.Password,
-		conn.ValidateCert, conn.CAFile, conn.ClientCert, conn.ClientKey, conn.DefaultSubscriptions,
+		conn.ValidateCert, conn.CAFile, conn.ClientCert, conn.ClientKey, conn.DefaultSubscriptions, conn.Favourite,
 		conn.UpdatedAt.Format(time.RFC3339), conn.ID)
 	return err
 }
@@ -204,21 +206,29 @@ func (d *Database) DeleteConnection(ctx context.Context, id int64) error {
 	return err
 }
 
+func (d *Database) UpdateLastConnected(ctx context.Context, id int64) error {
+	_, err := d.db.ExecContext(ctx, "UPDATE connections SET last_connected = ? WHERE id = ?", time.Now().Format(time.RFC3339), id)
+	return err
+}
+
 func (d *Database) GetConnection(ctx context.Context, id int64) (*models.Connection, error) {
 	var conn models.Connection
-	var createdAt, updatedAt string
+	var createdAt, updatedAt, lastConnected string
 
 	err := d.db.QueryRowContext(ctx, `
 		SELECT id, name, mqtt_version, protocol, host, port, username, password, validate_cert,
-			ca_file, client_cert, client_key, default_subscriptions, created_at, updated_at
+			ca_file, client_cert, client_key, default_subscriptions, favourite, last_connected, created_at, updated_at
 		FROM connections WHERE id = ?`, id).Scan(
 		&conn.ID, &conn.Name, &conn.MQTTVersion, &conn.Protocol, &conn.Host, &conn.Port,
 		&conn.Username, &conn.Password, &conn.ValidateCert, &conn.CAFile, &conn.ClientCert,
-		&conn.ClientKey, &conn.DefaultSubscriptions, &createdAt, &updatedAt)
+		&conn.ClientKey, &conn.DefaultSubscriptions, &conn.Favourite, &lastConnected, &createdAt, &updatedAt)
 	if err != nil {
 		return nil, err
 	}
 
+	if lastConnected != "" {
+		conn.LastConnected, _ = time.Parse(time.RFC3339, lastConnected)
+	}
 	conn.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
 	conn.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
 
@@ -228,8 +238,8 @@ func (d *Database) GetConnection(ctx context.Context, id int64) (*models.Connect
 func (d *Database) GetAllConnections(ctx context.Context) ([]models.Connection, error) {
 	rows, err := d.db.QueryContext(ctx, `
 		SELECT id, name, mqtt_version, protocol, host, port, username, password, validate_cert,
-			ca_file, client_cert, client_key, default_subscriptions, created_at, updated_at
-		FROM connections ORDER BY name`)
+			ca_file, client_cert, client_key, default_subscriptions, favourite, last_connected, created_at, updated_at
+		FROM connections ORDER BY favourite DESC, last_connected DESC NULLS LAST, name`)
 	if err != nil {
 		return nil, err
 	}
@@ -238,15 +248,18 @@ func (d *Database) GetAllConnections(ctx context.Context) ([]models.Connection, 
 	var connections []models.Connection
 	for rows.Next() {
 		var conn models.Connection
-		var createdAt, updatedAt string
+		var createdAt, updatedAt, lastConnected string
 
 		if err := rows.Scan(
 			&conn.ID, &conn.Name, &conn.MQTTVersion, &conn.Protocol, &conn.Host, &conn.Port,
 			&conn.Username, &conn.Password, &conn.ValidateCert, &conn.CAFile, &conn.ClientCert,
-			&conn.ClientKey, &conn.DefaultSubscriptions, &createdAt, &updatedAt); err != nil {
+			&conn.ClientKey, &conn.DefaultSubscriptions, &conn.Favourite, &lastConnected, &createdAt, &updatedAt); err != nil {
 			return nil, err
 		}
 
+		if lastConnected != "" {
+			conn.LastConnected, _ = time.Parse(time.RFC3339, lastConnected)
+		}
 		conn.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
 		conn.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
 		connections = append(connections, conn)
@@ -259,8 +272,8 @@ func (d *Database) SearchConnections(ctx context.Context, query string) ([]model
 	searchPattern := "%" + query + "%"
 	rows, err := d.db.QueryContext(ctx, `
 		SELECT id, name, mqtt_version, protocol, host, port, username, password, validate_cert,
-			ca_file, client_cert, client_key, default_subscriptions, created_at, updated_at
-		FROM connections WHERE name LIKE ? OR host LIKE ? ORDER BY name`, searchPattern, searchPattern)
+			ca_file, client_cert, client_key, default_subscriptions, favourite, last_connected, created_at, updated_at
+		FROM connections WHERE name LIKE ? OR host LIKE ? ORDER BY favourite DESC, last_connected DESC NULLS LAST, name`, searchPattern, searchPattern)
 	if err != nil {
 		return nil, err
 	}
@@ -269,15 +282,18 @@ func (d *Database) SearchConnections(ctx context.Context, query string) ([]model
 	var connections []models.Connection
 	for rows.Next() {
 		var conn models.Connection
-		var createdAt, updatedAt string
+		var createdAt, updatedAt, lastConnected string
 
 		if err := rows.Scan(
 			&conn.ID, &conn.Name, &conn.MQTTVersion, &conn.Protocol, &conn.Host, &conn.Port,
 			&conn.Username, &conn.Password, &conn.ValidateCert, &conn.CAFile, &conn.ClientCert,
-			&conn.ClientKey, &conn.DefaultSubscriptions, &createdAt, &updatedAt); err != nil {
+			&conn.ClientKey, &conn.DefaultSubscriptions, &conn.Favourite, &lastConnected, &createdAt, &updatedAt); err != nil {
 			return nil, err
 		}
 
+		if lastConnected != "" {
+			conn.LastConnected, _ = time.Parse(time.RFC3339, lastConnected)
+		}
 		conn.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
 		conn.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
 		connections = append(connections, conn)

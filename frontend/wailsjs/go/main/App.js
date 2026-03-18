@@ -74,6 +74,10 @@ export function ImportConnections(arg1) {
   return window['go']['main']['App']['ImportConnections'](arg1);
 }
 
+export function ImportFromOldVersion(arg1) {
+  return window['go']['main']['App']['ImportFromOldVersion'](arg1);
+}
+
 export function SearchConnections(arg1) {
   return window['go']['main']['App']['SearchConnections'](arg1);
 }

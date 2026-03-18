@@ -41,7 +41,8 @@ const formData = ref({
   caFile: '',
   clientCert: '',
   clientKey: '',
-  defaultSubscriptions: '#,$SYS/#'
+  defaultSubscriptions: '#,$SYS/#',
+  favourite: false
 })
 
 const caFileInputRef = ref<HTMLInputElement | null>(null)
@@ -138,7 +139,8 @@ function resetForm() {
     caFile: '',
     clientCert: '',
     clientKey: '',
-    defaultSubscriptions: '#,$SYS/#'
+    defaultSubscriptions: '#,$SYS/#',
+    favourite: false
   }
 }
 
@@ -161,7 +163,8 @@ function openEditConnection(conn: Connection) {
     caFile: conn.caFile || '',
     clientCert: conn.clientCert || '',
     clientKey: conn.clientKey || '',
-    defaultSubscriptions: conn.defaultSubscriptions || ''
+    defaultSubscriptions: conn.defaultSubscriptions || '',
+    favourite: conn.favourite
   }
   showDialog.value = true
 }
@@ -216,6 +219,14 @@ async function disconnectFrom(conn: Connection) {
   await store.disconnect(conn.id)
 }
 
+async function toggleFavorite(conn: Connection) {
+  const updated = { ...conn, favourite: !conn.favourite }
+  await store.updateConnection(updated)
+  if (selectedConnection.value?.id === conn.id) {
+    selectedConnection.value = updated
+  }
+}
+
 function getStatusClass(conn: Connection) {
   const status = store.connectionStatuses[conn.id]?.status
   if (status === 'connected') return 'badge-success'
@@ -230,6 +241,21 @@ function getStatusText(conn: Connection) {
   if (status === 'connecting') return 'Connecting'
   if (status === 'error') return 'Error'
   return 'Disconnected'
+}
+
+function formatLastConnected(timestamp: string): string {
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
+
+  if (minutes < 1) return 'Just now'
+  if (minutes < 60) return `${minutes}m ago`
+  if (hours < 24) return `${hours}h ago`
+  if (days < 7) return `${days}d ago`
+  return date.toLocaleDateString()
 }
 
 onMounted(() => {
@@ -391,7 +417,8 @@ onMounted(() => {
           @click="selectConnection(conn)"
         >
           <div class="connection-item-main">
-            <span class="status-dot" :class="getStatusClass(conn)" :title="getStatusText(conn)"></span>
+            <span v-if="conn.favourite" class="favourite-star" title="Favourite">★</span>
+            <span v-else class="status-dot" :class="getStatusClass(conn)" :title="getStatusText(conn)"></span>
             <div class="connection-item-info">
               <span class="connection-name">{{ conn.name }}</span>
               <span class="connection-address mono text-muted text-sm">{{ conn.host }}:{{ conn.port }}</span>
@@ -423,8 +450,8 @@ onMounted(() => {
             <h2>{{ selectedConnection.name }}</h2>
             <span class="badge" :class="getStatusClass(selectedConnection)">{{ getStatusText(selectedConnection) }}</span>
           </div>
-          <button class="btn btn-ghost btn-icon" title="Add to favorites">
-            <span class="mdi mdi-star-outline"></span>
+          <button class="btn btn-ghost btn-icon" :title="selectedConnection.favourite ? 'Remove from favorites' : 'Add to favorites'" @click="toggleFavorite(selectedConnection)">
+            <span class="mdi" :class="selectedConnection.favourite ? 'mdi-star' : 'mdi-star-outline'"></span>
           </button>
         </div>
 
@@ -478,6 +505,10 @@ onMounted(() => {
             <div class="info-row">
               <span class="info-label">Default Subscriptions</span>
               <span class="info-value mono">{{ selectedConnection.defaultSubscriptions || '-' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Last Connected</span>
+              <span class="info-value">{{ selectedConnection.lastConnected ? formatLastConnected(selectedConnection.lastConnected) : 'Never' }}</span>
             </div>
           </div>
 
@@ -716,6 +747,12 @@ onMounted(() => {
 
 .status-dot.badge-default {
   background: var(--color-muted-foreground);
+}
+
+.favourite-star {
+  font-size: 14px;
+  color: #f59e0b;
+  flex-shrink: 0;
 }
 
 .connect-btn-small {

@@ -60,6 +60,24 @@ async function importConnections(event: Event) {
   input.value = ''
 }
 
+async function importFromOldVersion(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  try {
+    const text = await file.text()
+    const imported = await store.importFromOldVersion(text)
+    await store.loadConnections()
+    store.showToast(`Imported ${imported} connections successfully`)
+  } catch (error) {
+    console.error('Import failed:', error)
+    store.showToast('Failed to import connections', 'error')
+  }
+
+  input.value = ''
+}
+
 onMounted(() => {
   localSettings.value = { ...store.settings }
 })
@@ -271,6 +289,20 @@ onMounted(() => {
               <span class="mdi mdi-import"></span>
               Import
               <input type="file" accept=".json" @change="importConnections" hidden />
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-info">
+            <label class="setting-label">Import from Old Version</label>
+            <p class="setting-description">Import connections from MQTT5 Explorer v1.x.x</p>
+          </div>
+          <div class="setting-control">
+            <label class="btn btn-secondary import-btn">
+              <span class="mdi mdi-database-import"></span>
+              Import
+              <input type="file" accept=".json" @change="importFromOldVersion" hidden />
             </label>
           </div>
         </div>
