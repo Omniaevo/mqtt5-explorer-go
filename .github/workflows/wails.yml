@@ -37,7 +37,7 @@ jobs:
           submodules: recursive
 
       - name: Build
-        uses: The-Egg-Corp/wails-build-action@v2
+        uses: The-Egg-Corp/wails-build-action@v2.1
         with:
           build-name: ${{ matrix.build.name }}
           build-platform: ${{ matrix.build.platform }}
