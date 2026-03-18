@@ -15,11 +15,10 @@ import (
 	"mqtt5-explorer-go/backend/mqtt"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
-	"github.com/tidwall/gjson"
 )
 
 //go:embed wails.json
-var wailsJSON string
+var wailsJSON []byte
 
 var (
 	h           *handlers.Handlers
@@ -261,6 +260,13 @@ func (a *App) CheckPort(host string, port int) bool {
 }
 
 func (a *App) GetVersion() (string) {
-  version := gjson.Get(wailsJSON , "info.productVersion")
-  return version.String()
+  var config struct {
+    Info struct {
+      ProductVersion string `json:"productVersion"`
+    } `json:"info"`
+  }
+
+  json.Unmarshal(wailsJSON, &config)
+
+  return config.Info.ProductVersion
 }
