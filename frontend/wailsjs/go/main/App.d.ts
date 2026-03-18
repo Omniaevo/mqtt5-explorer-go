@@ -36,6 +36,8 @@ export function GetSettings():Promise<Record<string, string>>;
 
 export function GetTopicTree(arg1:number):Promise<models.TopicNode>;
 
+export function GetVersion():Promise<string>;
+
 export function ImportConnections(arg1:string):Promise<Array<number>>;
 
 export function ImportFromOldVersion(arg1:string):Promise<number>;

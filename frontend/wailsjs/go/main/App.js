@@ -70,6 +70,10 @@ export function GetTopicTree(arg1) {
   return window['go']['main']['App']['GetTopicTree'](arg1);
 }
 
+export function GetVersion() {
+  return window['go']['main']['App']['GetVersion']();
+}
+
 export function ImportConnections(arg1) {
   return window['go']['main']['App']['ImportConnections'](arg1);
 }

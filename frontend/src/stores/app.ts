@@ -33,6 +33,7 @@ declare global {
           Unsubscribe: (connectionId: number, topic: string) => Promise<void>
           GetTopicTree: (connectionId: number) => Promise<TopicNode>
           GetNumericMessages: (connectionId: number, topic: string, limit: number) => Promise<Message[]>
+          GetVersion: () => Promise<string>
         }
       }
     }
@@ -41,7 +42,7 @@ declare global {
 
 export const useAppStore = defineStore('app', () => {
   const router = useRouter()
-  
+
   const settings = ref<Settings>({
     theme: 'light',
     accentColor: '#007AFF',
@@ -63,6 +64,11 @@ export const useAppStore = defineStore('app', () => {
   const selectedTopic = ref<string | null>(null)
   const currentClientId = ref<string>('')
   const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null)
+  const version = ref('')
+
+  async function loadVersion() {
+    version.value = await window.go.main.App.GetVersion()
+  }
 
   function showToast(message: string, type: 'success' | 'error' = 'success') {
     toast.value = { message, type }
@@ -227,10 +233,10 @@ export const useAppStore = defineStore('app', () => {
       await loadClientId()
       await loadTopicTree()
     } catch (error: any) {
-      connectionStatuses.value[id] = { 
-        connectionId: id, 
-        status: 'error', 
-        error: error.message || 'Connection failed' 
+      connectionStatuses.value[id] = {
+        connectionId: id,
+        status: 'error',
+        error: error.message || 'Connection failed'
       }
       throw error
     }
@@ -264,9 +270,9 @@ export const useAppStore = defineStore('app', () => {
   async function checkConnectionStatus(id: number) {
     try {
       const [connected, status] = await window.go.main.App.GetConnectionStatus(id)
-      connectionStatuses.value[id] = { 
-        connectionId: id, 
-        status: connected ? 'connected' : (status as any) || 'disconnected' 
+      connectionStatuses.value[id] = {
+        connectionId: id,
+        status: connected ? 'connected' : (status as any) || 'disconnected'
       }
     } catch (error) {
       console.error('Failed to check connection status:', error)
@@ -436,6 +442,8 @@ export const useAppStore = defineStore('app', () => {
     importConnections,
     importFromOldVersion,
     toast,
-    showToast
+    showToast,
+    version,
+    loadVersion,
   }
 })

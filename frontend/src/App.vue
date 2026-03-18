@@ -28,6 +28,7 @@ const navItems = [
 onMounted(async () => {
   await store.loadSettings()
   await store.loadConnections()
+  await store.loadVersion()
 })
 </script>
 
@@ -53,7 +54,7 @@ onMounted(async () => {
       </nav>
 
       <div class="sidebar-footer">
-        <span class="app-version">v2.0.0</span>
+        <span class="app-version">v{{ store.version }}</span>
       </div>
     </aside>
 

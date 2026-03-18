@@ -1,13 +1,18 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
   "name": "mqtt5-explorer-go",
+  "version": "2.0.0",
   "outputfilename": "mqtt5-explorer-go",
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
-  "author": {
-    "name": "Leonardo Cossutta",
-    "email": "leonardo.cossutta@gmail.com"
+  "info": {
+    "companyName": "Omniaevo SRL",
+    "productVersion": "2.0.0",
+    "comments": "A simple MQTT client that supports MQTT5 protocol.",
+    "fileAssociations": [
+      { "iconName": "appicon" }
+    ]
   }
 }
