@@ -31,11 +31,6 @@ jobs:
     runs-on: ${{ matrix.build.os }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
       - name: Read version from wails.json
         id: version
         shell: bash
@@ -43,8 +38,12 @@ jobs:
           VERSION=$(jq -r '.info.productVersion' wails.json)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
       - name: Build
-        uses: snider/build/actions/build/wails2@v3  # v3 uses upload-artifact@v4 internally
+        uses: snider/build@v3  # v3 uses upload-artifact@v4 internally
         with:
           build-name: ${{ matrix.build.name }}
           build-platform: ${{ matrix.build.platform }}
