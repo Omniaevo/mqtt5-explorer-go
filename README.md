@@ -1,6 +1,6 @@
 # MQTT5 Explorer (Go)
 
-[![Issues](https://img.shields.io/github/issues/Omniaevo/mqtt5-explorer-go)](https://github.com/Omniaevo/mqtt5-explorer-go/issues) [![Workflow status](https://img.shields.io/github/actions/workflow/status/Omniaevo/mqtt5-explorer-go/electron.yml)](https://github.com/Omniaevo/mqtt5-explorer-go/actions) ![Last commit](https://img.shields.io/github/last-commit/Omniaevo/mqtt5-explorer-go) [![Latest release](https://img.shields.io/github/v/release/Omniaevo/mqtt5-explorer-go)](https://github.com/Omniaevo/mqtt5-explorer-go/releases) [![License](https://img.shields.io/github/license/Omniaevo/mqtt5-explorer-go)](https://github.com/Omniaevo/mqtt5-explorer-go/blob/master/LICENSE)
+[![Issues](https://img.shields.io/github/issues/Omniaevo/mqtt5-explorer-go)](https://github.com/Omniaevo/mqtt5-explorer-go/issues) [![Workflow status](https://img.shields.io/github/actions/workflow/status/Omniaevo/mqtt5-explorer-go/wails.yml)](https://github.com/Omniaevo/mqtt5-explorer-go/actions) ![Last commit](https://img.shields.io/github/last-commit/Omniaevo/mqtt5-explorer-go) [![Latest release](https://img.shields.io/github/v/release/Omniaevo/mqtt5-explorer-go)](https://github.com/Omniaevo/mqtt5-explorer-go/releases) [![License](https://img.shields.io/github/license/Omniaevo/mqtt5-explorer-go)](https://github.com/Omniaevo/mqtt5-explorer-go/blob/master/LICENSE)
 
 ## About this project
 
