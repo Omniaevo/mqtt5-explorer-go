@@ -1,5 +1,7 @@
 # MQTT5 Explorer (Go)
 
+[![Issues](https://img.shields.io/github/issues/Omniaevo/mqtt5-explorer-go)](https://github.com/Omniaevo/mqtt5-explorer-go/issues) [![Workflow status](https://img.shields.io/github/actions/workflow/status/Omniaevo/mqtt5-explorer-go/electron.yml)](https://github.com/Omniaevo/mqtt5-explorer-go/actions) ![Last commit](https://img.shields.io/github/last-commit/Omniaevo/mqtt5-explorer-go) [![Latest release](https://img.shields.io/github/v/release/Omniaevo/mqtt5-explorer-go)](https://github.com/Omniaevo/mqtt5-explorer-go/releases) [![License](https://img.shields.io/github/license/Omniaevo/mqtt5-explorer-go)](https://github.com/Omniaevo/mqtt5-explorer-go/blob/master/LICENSE)
+
 ## About this project
 
 The aim of this project is to bring the users a client app capable of making use of all the features of the version 5 of the MQTT protocol. The lack of any application that can offer the compatibility with the newer version of the protocol forced us to implement one to test the data of MQTT brokers workwise, why not to share this tool with others that may have the same issue?
@@ -25,3 +27,14 @@ To run in live development mode, run `wails dev` in the project directory. This 
 ## Compiles for production
 
 To build a redistributable, production mode package, use `wails build`.
+
+## Get involved
+
+See:
+
+- [The code of conduct](CODE_OF_CONDUCT.md).
+- [The contribution guidelines](.github/contributing.md).
+
+## Contributors
+
+[![Contributors](https://contrib.rocks/image?repo=Omniaevo/mqtt5-explorer-go)](https://github.com/Omniaevo/mqtt5-explorer-go/graphs/contributors)
