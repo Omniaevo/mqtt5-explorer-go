@@ -31,14 +31,8 @@ jobs:
     runs-on: ${{ matrix.build.os }}
 
     steps:
-      - name: Read version from wails.json
-        id: version
-        shell: bash
-        run: |
-          VERSION=$(jq -r '.info.productVersion' wails.json)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
