@@ -44,4 +44,6 @@ jobs:
           go-version: '1.24'
           node-version: '24.x'
           wails-version: 'v2.11.0'
+          AUTO_STACK: false
+          STACK: 'wails2'
           package: true # uploads artifact; also publishes to release on tag
