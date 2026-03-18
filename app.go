@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	_ "embed"
 	"encoding/json"
 	"log"
 	"os"
@@ -16,9 +15,6 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
-
-//go:embed wails.json
-var wailsJSON []byte
 
 var (
 	h           *handlers.Handlers
@@ -266,7 +262,7 @@ func (a *App) GetVersion() (string) {
     } `json:"info"`
   }
 
-  json.Unmarshal(wailsJSON, &config)
+  json.Unmarshal(WailsJSON, &config)
 
   return config.Info.ProductVersion
 }
