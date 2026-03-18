@@ -41,6 +41,8 @@ jobs:
 
       - name: Build
         uses: The-Egg-Corp/wails-build-action@v2.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.PUBLISHING_TOKEN }}
         with:
           build-name: ${{ matrix.build.artifact }}
           build-platform: ${{ matrix.build.platform }}

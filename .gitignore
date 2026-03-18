@@ -38,3 +38,4 @@ coverage.txt
 
 last_message
 old-export-format.json
+.env
