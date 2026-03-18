@@ -239,7 +239,9 @@ onMounted(async () => {
 
 .sidebar-footer {
   padding: 8px 12px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-height: 40px;
 }
 

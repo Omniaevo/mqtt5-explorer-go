@@ -78,6 +78,10 @@ async function importFromOldVersion(event: Event) {
   input.value = ''
 }
 
+function openGitHub() {
+  window.open('https://github.com/anomalyco/mqtt5-explorer-go/issues', '_blank')
+}
+
 onMounted(() => {
   localSettings.value = { ...store.settings }
 })
@@ -304,6 +308,23 @@ onMounted(() => {
               Import
               <input type="file" accept=".json" @change="importFromOldVersion" hidden />
             </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h2 class="section-title">Feedback</h2>
+
+        <div class="setting-item">
+          <div class="setting-info">
+            <label class="setting-label">Report a Bug</label>
+            <p class="setting-description">Found an issue? Let us know on GitHub</p>
+          </div>
+          <div class="setting-control">
+            <button class="btn btn-secondary" @click="openGitHub">
+              <span class="mdi mdi-bug"></span>
+              Report Bug
+            </button>
           </div>
         </div>
       </section>
