@@ -17,15 +17,17 @@ jobs:
     strategy:
       fail-fast: false # a failure on one platform won't cancel the others
       matrix:
-        artifact: 'mqtt5-explorer-go'
         build:
-          - name: 'MQTT5 Explorer (Linux)'
+          - name: 'Linux'
+            artifact: 'mqtt5-explorer-go'
             platform: 'linux/amd64'
             os: 'ubuntu-latest'
-          - name: 'MQTT5 Explorer (Windows)'
+          - name: 'Windows'
+            artifact: 'mqtt5-explorer-go'
             platform: 'windows/amd64'
             os: 'windows-latest'
-          - name: 'MQTT5 Explorer (MacOS)'
+          - name: 'MacOS'
+            artifact: 'mqtt5-explorer-go'
             platform: 'darwin/universal' # builds fat binary for arm64 + amd64
             os: 'macos-latest'
 
@@ -40,7 +42,7 @@ jobs:
       - name: Build
         uses: The-Egg-Corp/wails-build-action@v2.1
         with:
-          build-name: ${{ matrix.artifact }}
+          build-name: ${{ matrix.build.artifact }}
           build-platform: ${{ matrix.build.platform }}
           go-version: '1.24'
           node-version: '24.x'
