@@ -33,7 +33,7 @@ const valueSearchQuery = ref('')
 const valueSearchMode = ref<SearchMode>('substring')
 const expandedNodes = ref<Set<string>>(new Set())
 const flashingTopics = ref<Set<string>>(new Set())
-const sidebarWidth = ref(350)
+const sidebarWidth = ref(380)
 const knownTopics = ref<Map<string, { count: number; level: number }>>(new Map())
 
 function startResize(e: MouseEvent) {

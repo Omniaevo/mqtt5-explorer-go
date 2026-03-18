@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/url"
 	"os"
@@ -59,10 +60,13 @@ func (c *Client) UpdateSettings(settings map[string]string) {
 func (c *Client) Connect(ctx context.Context, conn *models.Connection) error {
 	settings := c.getSettings()
 
+	log.Printf("[MQTT] Connecting to %s (%s:%d)", conn.Name, conn.Host, conn.Port)
+
 	c.mu.Lock()
 	if _, exists := c.clients[conn.ID]; exists {
 		if c.connected[conn.ID] {
 			c.mu.Unlock()
+			log.Printf("[MQTT] Already connected to %s", conn.Name)
 			return nil
 		}
 	}
@@ -165,6 +169,7 @@ func (c *Client) Connect(ctx context.Context, conn *models.Connection) error {
 		c.mu.Lock()
 		c.status[conn.ID] = "error"
 		c.mu.Unlock()
+		log.Printf("[MQTT] Connection failed to %s: %v", conn.Name, err)
 		return fmt.Errorf("await connection error: %w", err)
 	}
 
@@ -175,6 +180,8 @@ func (c *Client) Connect(ctx context.Context, conn *models.Connection) error {
 	c.clientIds[conn.ID] = clientID
 	c.subscriptions[conn.ID] = make(map[string]byte)
 	c.mu.Unlock()
+
+	log.Printf("[MQTT] Connection established to %s", conn.Name)
 
 	cm.AddOnPublishReceived(func(pr autopaho.PublishReceived) (bool, error) {
 		c.handleMessage(conn.ID, pr.Packet)
@@ -277,11 +284,16 @@ func (c *Client) Disconnect(ctx context.Context, connectionID int64) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		cm.Disconnect(ctx)
+
+		clientID := c.clientIds[connectionID]
+
 		delete(c.clients, connectionID)
 		delete(c.clientIds, connectionID)
 		delete(c.subscriptions, connectionID)
 		c.connected[connectionID] = false
 		c.status[connectionID] = "disconnected"
+
+		log.Printf("[MQTT] Disconnected (clientID: %s)", clientID)
 
 		database.DB.ClearMessages(context.Background(), connectionID)
 
@@ -342,6 +354,8 @@ func (c *Client) SendMessage(ctx context.Context, req *models.SendMessageRequest
 		return fmt.Errorf("publish error: %w", err)
 	}
 
+	log.Printf("[MQTT] Published to %s (qos: %d, retain: %v)", req.Topic, req.QoS, req.Retain)
+
 	return nil
 }
 
@@ -392,6 +406,8 @@ func (c *Client) Subscribe(connectionID int64, topic string, qos byte) error {
 		c.subscriptions[connectionID][topic] = qos
 	}
 	c.mu.Unlock()
+
+	log.Printf("[MQTT] Subscribed to %s (qos: %d)", topic, qos)
 
 	return nil
 }

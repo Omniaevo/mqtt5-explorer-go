@@ -4,6 +4,9 @@ import { useAppStore } from '../stores/app'
 import { useRouter } from 'vue-router'
 import type { Connection } from '../types'
 import {
+  SplitterGroup,
+  SplitterPanel,
+  SplitterResizeHandle,
   DialogRoot,
   DialogTrigger,
   DialogContent,
@@ -19,12 +22,12 @@ const router = useRouter()
 const searchQuery = ref('')
 const showDialog = ref(false)
 const editingConnection = ref<Connection | null>(null)
-const showInfoDialog = ref(false)
-const infoConnection = ref<Connection | null>(null)
 const showDeleteDialog = ref(false)
 const connectionToDelete = ref<Connection | null>(null)
 const showPassword = ref(false)
 const showInfoPassword = ref(false)
+const selectedConnection = ref<Connection | null>(null)
+const sidebarWidth = ref(380)
 
 const formData = ref({
   name: '',
@@ -45,6 +48,27 @@ const caFileInputRef = ref<HTMLInputElement | null>(null)
 const clientCertInputRef = ref<HTMLInputElement | null>(null)
 const clientKeyInputRef = ref<HTMLInputElement | null>(null)
 
+function startResize(e: MouseEvent) {
+  document.body.style.userSelect = 'none'
+  const startX = e.clientX
+  const startWidth = sidebarWidth.value
+
+  function doResize(e: MouseEvent) {
+    const delta = e.clientX - startX
+    const newWidth = Math.min(Math.max(startWidth + delta, 200), 600)
+    sidebarWidth.value = newWidth
+  }
+
+  function stopResize() {
+    document.body.style.userSelect = ''
+    document.removeEventListener('mousemove', doResize)
+    document.removeEventListener('mouseup', stopResize)
+  }
+
+  document.addEventListener('mousemove', doResize, { passive: true })
+  document.addEventListener('mouseup', stopResize)
+}
+
 function selectFile(field: 'caFile' | 'clientCert' | 'clientKey') {
   if (field === 'caFile') {
     caFileInputRef.value?.click()
@@ -64,7 +88,13 @@ function handleFileChange(event: Event, field: 'caFile' | 'clientCert' | 'client
 }
 
 const filteredConnections = computed(() => {
-  return store.connections || []
+  const connections = store.connections || []
+  if (!searchQuery.value) return connections
+  const query = searchQuery.value.toLowerCase()
+  return connections.filter(conn =>
+    conn.name.toLowerCase().includes(query) ||
+    conn.host.toLowerCase().includes(query)
+  )
 })
 
 const protocolOptions = [
@@ -159,15 +189,18 @@ function confirmDeleteConnection(conn: Connection) {
 
 async function deleteConnection() {
   if (connectionToDelete.value) {
-    await store.deleteConnection(connectionToDelete.value.id)
+    const connId = connectionToDelete.value.id
+    await store.deleteConnection(connId)
     showDeleteDialog.value = false
     connectionToDelete.value = null
+    if (selectedConnection.value?.id === connId) {
+      selectedConnection.value = null
+    }
   }
 }
 
-function openInfoDialog(conn: Connection) {
-  infoConnection.value = conn
-  showInfoDialog.value = true
+function selectConnection(conn: Connection) {
+  selectedConnection.value = conn
 }
 
 async function connectTo(conn: Connection) {
@@ -206,29 +239,33 @@ onMounted(() => {
 
 <template>
   <div class="home-page">
-    <header class="page-header">
-      <div class="header-left">
-        <h1>Connections</h1>
-        <span class="text-muted text-sm">{{ store.connections?.length || 0 }} connections</span>
+    <aside class="connections-sidebar" :style="{ width: sidebarWidth + 'px', minWidth: sidebarWidth + 'px' }">
+      <div class="sidebar-header">
+        <h2>Connections</h2>
+        <span class="connection-count" :title="(store.connections?.length || 0) + ' connections'">
+          <span class="mdi mdi-ethernet"></span>{{ store.connections?.length || 0 }}
+        </span>
       </div>
-      <div class="header-right">
-        <div class="search-box">
-          <span class="mdi mdi-magnify"></span>
-          <input
-            v-model="searchQuery"
-            type="text"
-            class="input"
-            placeholder="Search connections..."
-          />
-        </div>
-        <DialogRoot v-model:open="showDialog">
-          <DialogOverlay class="dialog-overlay" />
-          <DialogTrigger as-child>
-            <button class="btn btn-primary">
-              <span class="mdi mdi-plus"></span>
-              New Connection
-            </button>
-          </DialogTrigger>
+
+      <div class="sidebar-toolbar">
+        <div class="toolbar-row">
+          <div class="search-box">
+            <span class="mdi mdi-magnify"></span>
+            <input
+              v-model="searchQuery"
+              type="text"
+              class="input"
+              placeholder="Search connections..."
+            />
+          </div>
+          <DialogRoot v-model:open="showDialog">
+            <DialogOverlay class="dialog-overlay" />
+            <DialogTrigger as-child>
+              <button class="btn btn-primary">
+                <span class="mdi mdi-plus"></span>
+                New
+              </button>
+            </DialogTrigger>
           <DialogContent class="dialog-content">
             <DialogTitle class="dialog-title">
               {{ editingConnection ? 'Edit Connection' : 'New Connection' }}
@@ -291,7 +328,7 @@ onMounted(() => {
 
               <details class="advanced-section">
                 <summary class="advanced-toggle"><span class="mdi mdi-chevron-right chevron"></span> Advanced Settings</summary>
-                
+
                 <div class="form-group">
                   <div class="switch-row">
                     <label class="label">Validate Certificate</label>
@@ -342,186 +379,171 @@ onMounted(() => {
             </DialogClose>
           </DialogContent>
         </DialogRoot>
-
-        <DialogRoot v-model:open="showInfoDialog">
-          <DialogOverlay class="dialog-overlay" />
-          <DialogContent class="dialog-content" v-if="infoConnection">
-            <DialogTitle class="dialog-title">
-              Connection Details
-            </DialogTitle>
-            <DialogDescription class="dialog-description">
-              {{ infoConnection.name }}
-            </DialogDescription>
-
-            <div class="info-grid">
-              <div class="info-row">
-                <span class="info-label">Protocol</span>
-                <span class="info-value">{{ infoConnection.protocol.toUpperCase() }}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">MQTT Version</span>
-                <span class="info-value">{{ infoConnection.mqttVersion === 3 ? '3.1' : infoConnection.mqttVersion === 4 ? '3.1.1' : '5.0' }}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Host</span>
-                <span class="info-value mono">{{ infoConnection.host }}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Port</span>
-                <span class="info-value">{{ infoConnection.port }}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Username</span>
-                <span class="info-value">{{ infoConnection.username || '-' }}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Password</span>
-                <div class="info-password">
-                  <span class="info-value mono">{{ infoConnection.password ? (showInfoPassword ? infoConnection.password : '••••••••') : '-' }}</span>
-                  <button v-if="infoConnection.password" type="button" class="password-toggle" @click="showInfoPassword = !showInfoPassword">
-                    <span class="mdi" :class="showInfoPassword ? 'mdi-eye-off' : 'mdi-eye'"></span>
-                  </button>
-                </div>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Validate Certificate</span>
-                <span class="info-value">{{ infoConnection.validateCert ? 'Yes' : 'No' }}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">CA File</span>
-                <span class="info-value mono">{{ infoConnection.caFile || '-' }}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Client Certificate</span>
-                <span class="info-value mono">{{ infoConnection.clientCert || '-' }}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Client Key</span>
-                <span class="info-value mono">{{ infoConnection.clientKey || '-' }}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Default Subscriptions</span>
-                <span class="info-value mono">{{ infoConnection.defaultSubscriptions || '-' }}</span>
-              </div>
-            </div>
-
-            <div class="form-actions">
-              <DialogClose as-child>
-                <button type="button" class="btn btn-primary">Close</button>
-              </DialogClose>
-            </div>
-
-            <DialogClose class="dialog-close">
-              <span class="mdi mdi-close"></span>
-            </DialogClose>
-          </DialogContent>
-        </DialogRoot>
-
-        <DialogRoot v-model:open="showDeleteDialog">
-          <DialogOverlay class="dialog-overlay" />
-          <DialogContent class="dialog-content">
-            <DialogTitle class="dialog-title">
-              Delete Connection
-            </DialogTitle>
-            <DialogDescription class="dialog-description">
-              Are you sure you want to delete "{{ connectionToDelete?.name }}"? This action cannot be undone.
-            </DialogDescription>
-
-            <div class="form-actions">
-              <DialogClose as-child>
-                <button type="button" class="btn btn-secondary">Cancel</button>
-              </DialogClose>
-              <button type="button" class="btn btn-danger" @click="deleteConnection">
-                Delete
-              </button>
-            </div>
-
-            <DialogClose class="dialog-close" @click="showDeleteDialog = false">
-              <span class="mdi mdi-close"></span>
-            </DialogClose>
-          </DialogContent>
-        </DialogRoot>
+        </div>
       </div>
-    </header>
 
-    <div class="connections-grid">
-      <div
-        v-for="conn in filteredConnections || []"
-        :key="conn.id"
-        class="connection-card"
-      >
-        <div class="card-header">
-          <div class="card-title-area">
-            <h3>{{ conn.name }}</h3>
-            <span class="badge" :class="getStatusClass(conn)">{{ getStatusText(conn) }}</span>
+      <div class="connections-list">
+        <div
+          v-for="conn in filteredConnections || []"
+          :key="conn.id"
+          class="connection-item"
+          :class="{ active: selectedConnection?.id === conn.id }"
+          @click="selectConnection(conn)"
+        >
+          <div class="connection-item-main">
+            <span class="status-dot" :class="getStatusClass(conn)" :title="getStatusText(conn)"></span>
+            <div class="connection-item-info">
+              <span class="connection-name">{{ conn.name }}</span>
+              <span class="connection-address mono text-muted text-sm">{{ conn.host }}:{{ conn.port }}</span>
+            </div>
           </div>
+          <button
+            v-if="selectedConnection?.id !== conn.id && store.connectionStatuses[conn.id]?.status !== 'connected' && store.connectionStatuses[conn.id]?.status !== 'connecting' && !store.hasActiveConnection"
+            class="connect-btn-small"
+            @click.stop="connectTo(conn)"
+            title="Connect"
+          >
+            <span class="mdi mdi-play"></span>
+          </button>
         </div>
 
-        <div class="card-body">
-          <div class="connection-info">
-            <span class="info-label">Protocol:</span>
-            <span class="info-value">{{ conn.protocol.toUpperCase() }}</span>
+        <div v-if="!filteredConnections?.length" class="empty-state">
+          <span class="mdi mdi-connection icon"></span>
+          <span class="text-muted text-sm">No connections</span>
+        </div>
+      </div>
+    </aside>
+
+    <div class="resize-handle" @mousedown="startResize"></div>
+
+    <main class="connections-main">
+      <div v-if="selectedConnection" class="connection-details">
+        <div class="details-header">
+          <div class="details-header-left">
+            <h2>{{ selectedConnection.name }}</h2>
+            <span class="badge" :class="getStatusClass(selectedConnection)">{{ getStatusText(selectedConnection) }}</span>
           </div>
-          <div class="connection-info">
-            <span class="info-label">Version:</span>
-            <span class="info-value">{{ conn.mqttVersion === 3 ? '3.1' : conn.mqttVersion === 4 ? '3.1.1' : '5.0' }}</span>
-          </div>
-          <div class="connection-info">
-            <span class="info-label">Address:</span>
-            <span class="info-value mono">{{ conn.host }}:{{ conn.port }}</span>
-          </div>
+          <button class="btn btn-ghost btn-icon" title="Add to favorites">
+            <span class="mdi mdi-star-outline"></span>
+          </button>
         </div>
 
-        <div class="card-footer">
-          <div class="card-actions-footer">
-            <button 
-              class="btn btn-secondary flex-1"
-              @click="openInfoDialog(conn)"
-            >
-              <span class="mdi mdi-information"></span>
-              Info
-            </button>
-            <button 
-              class="btn btn-secondary flex-1"
-              @click="openEditConnection(conn)"
-            >
+        <div class="details-content">
+          <div class="info-grid">
+            <div class="info-row">
+              <span class="info-label">Protocol</span>
+              <span class="info-value">{{ selectedConnection.protocol.toUpperCase() }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">MQTT Version</span>
+              <span class="info-value">{{ selectedConnection.mqttVersion === 3 ? '3.1' : selectedConnection.mqttVersion === 4 ? '3.1.1' : '5.0' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Host</span>
+              <span class="info-value mono">{{ selectedConnection.host }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Port</span>
+              <span class="info-value">{{ selectedConnection.port }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Username</span>
+              <span class="info-value">{{ selectedConnection.username || '-' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Password</span>
+              <div class="info-password">
+                <span class="info-value mono">{{ selectedConnection.password ? (showInfoPassword ? selectedConnection.password : '••••••••') : '-' }}</span>
+                <button v-if="selectedConnection.password" type="button" class="password-toggle" @click="showInfoPassword = !showInfoPassword">
+                  <span class="mdi" :class="showInfoPassword ? 'mdi-eye-off' : 'mdi-eye'"></span>
+                </button>
+              </div>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Validate Certificate</span>
+              <span class="info-value">{{ selectedConnection.validateCert ? 'Yes' : 'No' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">CA File</span>
+              <span class="info-value mono">{{ selectedConnection.caFile || '-' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Client Certificate</span>
+              <span class="info-value mono">{{ selectedConnection.clientCert || '-' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Client Key</span>
+              <span class="info-value mono">{{ selectedConnection.clientKey || '-' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Default Subscriptions</span>
+              <span class="info-value mono">{{ selectedConnection.defaultSubscriptions || '-' }}</span>
+            </div>
+          </div>
+
+          <div class="details-actions">
+            <button class="btn btn-flat btn-flat-secondary" @click="openEditConnection(selectedConnection)">
               <span class="mdi mdi-pencil"></span>
               Edit
             </button>
-            <button 
-              class="btn btn-secondary flex-1"
-              @click="confirmDeleteConnection(conn)"
-            >
+            <button class="btn btn-flat btn-flat-danger" @click="confirmDeleteConnection(selectedConnection)">
               <span class="mdi mdi-delete"></span>
               Delete
             </button>
+            <div class="details-actions-right">
+              <button
+                v-if="store.connectionStatuses[selectedConnection.id]?.status === 'connected'"
+                class="btn btn-secondary"
+                @click="disconnectFrom(selectedConnection)"
+              >
+                <span class="mdi mdi-link-off"></span>
+                Disconnect
+              </button>
+              <button
+                v-else
+                class="btn btn-primary"
+                :disabled="store.hasActiveConnection"
+                @click="connectTo(selectedConnection)"
+              >
+                <span class="mdi mdi-link"></span>
+                Connect
+              </button>
+            </div>
           </div>
-          <button
-            v-if="store.connectionStatuses[conn.id]?.status === 'connected'"
-            class="btn btn-secondary w-full"
-            @click="disconnectFrom(conn)"
-          >
-            <span class="mdi mdi-link-off"></span>
-            Disconnect
-          </button>
-          <button
-            v-else
-            class="btn btn-primary w-full"
-            :disabled="store.hasActiveConnection"
-            @click="connectTo(conn)"
-          >
-            <span class="mdi mdi-link"></span>
-            Connect
-          </button>
         </div>
       </div>
 
-      <div v-if="!filteredConnections?.length" class="empty-state">
-        <span class="mdi mdi-connection icon"></span>
-        <h3>No connections yet</h3>
-        <p class="text-muted">Create your first MQTT connection to get started</p>
+      <div v-else class="empty-details">
+        <span class="mdi mdi-ethernet icon"></span>
+        <h3>Select a connection</h3>
+        <p class="text-muted">Choose a connection from the list to view details</p>
       </div>
-    </div>
+    </main>
+
+    <DialogRoot v-model:open="showDeleteDialog">
+      <DialogOverlay class="dialog-overlay" />
+      <DialogContent class="dialog-content">
+        <DialogTitle class="dialog-title">
+          Delete Connection
+        </DialogTitle>
+        <DialogDescription class="dialog-description">
+          Are you sure you want to delete "{{ connectionToDelete?.name }}"? This action cannot be undone.
+        </DialogDescription>
+
+        <div class="form-actions">
+          <DialogClose as-child>
+            <button type="button" class="btn btn-secondary">Cancel</button>
+          </DialogClose>
+          <button type="button" class="btn btn-danger" @click="deleteConnection">
+            Delete
+          </button>
+        </div>
+
+        <DialogClose class="dialog-close" @click="showDeleteDialog = false">
+          <span class="mdi mdi-close"></span>
+        </DialogClose>
+      </DialogContent>
+    </DialogRoot>
   </div>
 </template>
 
@@ -529,32 +551,70 @@ onMounted(() => {
 .home-page {
   height: 100%;
   display: flex;
-  flex-direction: column;
   overflow: hidden;
 }
 
-.page-header {
+.connections-sidebar {
+  width: 280px;
+  min-width: 200px;
+  max-width: 600px;
+  background: var(--color-secondary);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+}
+
+.resize-handle {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.resize-handle:hover {
+  background: var(--color-primary);
+}
+
+.sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-background);
+  padding: 16px;
 }
 
-.header-left h1 {
-  font-size: 20px;
+.sidebar-header h2 {
+  font-size: 14px;
   font-weight: 600;
-  margin-bottom: 4px;
 }
 
-.header-right {
+.connection-count {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: var(--color-muted);
+  border-radius: 10px;
+  color: var(--color-muted-foreground);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
+}
+
+.connection-count .mdi {
+  font-size: 12px;
+}
+
+.sidebar-toolbar {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.toolbar-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .search-box {
+  flex: 1;
   position: relative;
 }
 
@@ -568,107 +628,284 @@ onMounted(() => {
 
 .search-box .input {
   padding-left: 36px;
-  width: 240px;
+  width: 100%;
 }
 
-.connections-grid {
+.connections-list {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
-  align-content: start;
+  padding: 8px;
 }
 
-.connection-card {
-  background: var(--color-card);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.card-header {
-  margin-bottom: 12px;
-  overflow: hidden;
-}
-
-.card-title-area {
+.connection-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  overflow: hidden;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  margin-bottom: 4px;
 }
 
-.card-title-area h3 {
-  font-size: 16px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
+.connection-item:hover {
+  background: var(--color-muted);
+}
+
+.connection-item.active {
+  background: var(--color-primary);
+  color: white;
+}
+
+.connection-item.active .connection-address,
+.connection-item.active .text-muted {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.connection-item-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
 }
 
-.card-actions {
-  display: flex;
-  gap: 4px;
+.connection-icon {
+  font-size: 18px;
+  flex-shrink: 0;
 }
 
-.card-body {
-  margin-bottom: 16px;
-}
-
-.card-footer {
+.connection-item-info {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+}
+
+.connection-name {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.connection-address {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.badge-success {
+  background: #22c55e;
+}
+
+.status-dot.badge-warning {
+  background: #f59e0b;
+}
+
+.status-dot.badge-error {
+  background: #ef4444;
+}
+
+.status-dot.badge-default {
+  background: var(--color-muted-foreground);
+}
+
+.connect-btn-small {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.connect-btn-small:hover:not(:disabled) {
+  transform: scale(1.1);
+  background: var(--color-accent);
+}
+
+.connect-btn-small:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.connect-btn-small .mdi {
+  font-size: 14px;
+}
+
+.connections-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-background);
+}
+
+.connection-details {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.details-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.details-header-left {
+  display: flex;
+  align-items: center;
   gap: 12px;
 }
 
-.card-actions-footer {
-  display: flex;
-  gap: 8px;
+.details-header h2 {
+  font-size: 20px;
+  font-weight: 600;
 }
 
-.card-actions-footer .btn {
+.details-content {
   flex: 1;
 }
 
-.connection-info {
+.info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 24px;
+}
+
+.info-row {
   display: flex;
   justify-content: space-between;
-  padding: 6px 0;
-  font-size: 13px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.info-row:last-child {
+  border-bottom: none;
 }
 
 .info-label {
   color: var(--color-muted-foreground);
+  font-size: 13px;
 }
 
 .info-value {
   color: var(--color-foreground);
+  font-size: 13px;
   font-weight: 500;
+  text-align: right;
+  word-break: break-all;
 }
 
-.empty-state {
-  grid-column: 1 / -1;
+.info-value.mono {
+  font-family: monospace;
+}
+
+.info-password {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-password .password-toggle {
+  position: static;
+  padding: 2px;
+}
+
+.details-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+
+.details-actions-right {
+  margin-left: auto;
+}
+
+.btn-flat {
+  background: transparent;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.15s ease;
+}
+
+.btn-flat-secondary {
+  color: var(--color-primary);
+}
+
+.btn-flat-secondary:hover {
+  background: var(--color-muted);
+}
+
+.btn-flat-danger {
+  color: var(--color-destructive);
+}
+
+.btn-flat-danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.empty-details {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 48px;
   text-align: center;
+  padding: 48px;
 }
 
-.empty-state .icon {
-  font-size: 64px;
+.empty-details .icon {
+  font-size: 48px;
   color: var(--color-muted-foreground);
   margin-bottom: 16px;
 }
 
-.empty-state h3 {
+.empty-details h3 {
   font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+}
+
+.empty-state .icon {
+  font-size: 32px;
+  color: var(--color-muted-foreground);
   margin-bottom: 8px;
 }
 
@@ -759,17 +996,6 @@ onMounted(() => {
   color: var(--color-foreground);
 }
 
-.info-password {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.info-password .password-toggle {
-  position: static;
-  padding: 2px;
-}
-
 .checkbox-label {
   display: flex;
   align-items: center;
@@ -843,40 +1069,6 @@ details[open] .advanced-toggle {
   font-size: 18px;
 }
 
-.info-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.info-row:last-child {
-  border-bottom: none;
-}
-
-.info-row .info-label {
-  color: var(--color-muted-foreground);
-  font-size: 13px;
-}
-
-.info-row .info-value {
-  color: var(--color-foreground);
-  font-size: 13px;
-  font-weight: 500;
-  text-align: right;
-  word-break: break-all;
-}
-
-.info-row .info-value.mono {
-  font-family: monospace;
-}
-
 .switch-row {
   display: flex;
   align-items: center;
@@ -934,5 +1126,36 @@ details[open] .advanced-toggle {
 
 .file-input {
   cursor: pointer;
+}
+
+.badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.badge-success {
+  background: #22c55e;
+  color: white;
+}
+
+.badge-warning {
+  background: #f59e0b;
+  color: white;
+}
+
+.badge-error {
+  background: #ef4444;
+  color: white;
+}
+
+.badge-default {
+  background: var(--color-muted);
+  color: var(--color-muted-foreground);
+}
+
+.w-full {
+  width: 100%;
 }
 </style>

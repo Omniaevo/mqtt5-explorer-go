@@ -19,7 +19,7 @@ const route = useRoute()
 const showInfoDialog = ref(false)
 
 const navItems = [
-  { name: 'Home', path: '/', icon: 'mdi-home' },
+  { name: 'Connections', path: '/', icon: 'mdi-ethernet' },
   { name: 'Messages', path: '/messages', icon: 'mdi-message-text', requiresConnection: true },
   { name: 'Charts', path: '/charts', icon: 'mdi-chart-line', requiresConnection: true },
   { name: 'Settings', path: '/settings', icon: 'mdi-cog' }
