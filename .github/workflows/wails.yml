@@ -36,12 +36,6 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
-
       - name: Read version from wails.json
         id: version
         shell: bash
@@ -50,7 +44,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build
-        uses: dAppServer/wails-build-action@v3  # v3 uses upload-artifact@v4 internally
+        uses: snider/build@v3  # v3 uses upload-artifact@v4 internally
         with:
           build-name: ${{ matrix.build.name }}
           build-platform: ${{ matrix.build.platform }}
@@ -58,5 +52,3 @@ jobs:
           node-version: '24.x'
           wails-version: 'v2.11.0'
           package: true # uploads artifact; also publishes to release on tag
-          # Injects the version from wails.json into the Go binary
-          build-flags: "-ldflags \"-X main.version=${{ steps.version.outputs.version }}\""
