@@ -37,7 +37,7 @@ jobs:
           submodules: recursive
 
       - name: Build
-        uses: snider/build@v3  # v3 uses upload-artifact@v4 internally
+        uses: dAppServer/wails-build-action@v3  # v3 uses upload-artifact@v4 internally
         with:
           build-name: ${{ matrix.build.name }}
           build-platform: ${{ matrix.build.platform }}
