@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"mqtt5-explorer-go/backend/database"
 	"mqtt5-explorer-go/backend/models"
 	"mqtt5-explorer-go/backend/mqtt"
@@ -105,14 +106,23 @@ type OldConnection struct {
 func (h *Handlers) ImportFromOldVersion(ctx context.Context, jsonData string) (int, error) {
 	var connections []OldConnection
 	if err := json.Unmarshal([]byte(jsonData), &connections); err != nil {
+		log.Printf("[Import] JSON parse error: %v", err)
 		return 0, err
 	}
 
+	log.Printf("[Import] Found %d connections to import", len(connections))
+
 	count := 0
 	for _, oldConn := range connections {
+		log.Printf("[Import] Processing: %s (protocol: %s, version: %d, host: %s, port: %v)",
+			oldConn.Name, oldConn.Protocol, oldConn.Version, oldConn.Host, oldConn.Port)
+
 		protocol := oldConn.Protocol
-		if oldConn.TLS {
+		// Handle protocol mapping based on TLS setting
+		if protocol == "mqtt" && oldConn.TLS {
 			protocol = "mqtts"
+		} else if protocol == "ws" && oldConn.TLS {
+			protocol = "wss"
 		}
 
 		port := 1883
@@ -162,12 +172,23 @@ func (h *Handlers) ImportFromOldVersion(ctx context.Context, jsonData string) (i
 			Favourite:            false,
 		}
 
+		// Check if connection with same name already exists
+		existing, _ := database.DB.GetConnectionByName(ctx, oldConn.Name)
+		if existing != nil {
+			log.Printf("[Import] Skipping duplicate: %s", oldConn.Name)
+			continue
+		}
+
 		_, err := database.DB.CreateConnection(ctx, conn)
-		if err == nil {
+		if err != nil {
+			log.Printf("[Import] Error creating connection %s: %v", oldConn.Name, err)
+		} else {
+			log.Printf("[Import] Successfully imported: %s", oldConn.Name)
 			count++
 		}
 	}
 
+	log.Printf("[Import] Total imported: %d", count)
 	return count, nil
 }
 
