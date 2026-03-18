@@ -223,6 +223,7 @@ export const useAppStore = defineStore('app', () => {
       currentConnectionId.value = id
       selectedTopic.value = null
       messages.value = []
+      await loadConnections()
       await loadClientId()
       await loadTopicTree()
     } catch (error: any) {

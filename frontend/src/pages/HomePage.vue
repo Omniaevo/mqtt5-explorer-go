@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import moment from 'moment'
 import { useAppStore } from '../stores/app'
 import { useRouter } from 'vue-router'
 import type { Connection } from '../types'
@@ -96,6 +97,14 @@ const filteredConnections = computed(() => {
     conn.name.toLowerCase().includes(query) ||
     conn.host.toLowerCase().includes(query)
   )
+})
+
+const favouriteConnections = computed(() => {
+  return (filteredConnections.value || []).filter(conn => conn.favourite)
+})
+
+const regularConnections = computed(() => {
+  return (filteredConnections.value || []).filter(conn => !conn.favourite)
 })
 
 const protocolOptions = [
@@ -244,18 +253,7 @@ function getStatusText(conn: Connection) {
 }
 
 function formatLastConnected(timestamp: string): string {
-  const date = new Date(timestamp)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const minutes = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
-
-  if (minutes < 1) return 'Just now'
-  if (minutes < 60) return `${minutes}m ago`
-  if (hours < 24) return `${hours}h ago`
-  if (days < 7) return `${days}d ago`
-  return date.toLocaleDateString()
+  return moment(timestamp).format('YYYY/MM/DD HH:mm')
 }
 
 onMounted(() => {
@@ -409,30 +407,63 @@ onMounted(() => {
       </div>
 
       <div class="connections-list">
-        <div
-          v-for="conn in filteredConnections || []"
-          :key="conn.id"
-          class="connection-item"
-          :class="{ active: selectedConnection?.id === conn.id }"
-          @click="selectConnection(conn)"
-        >
-          <div class="connection-item-main">
-            <span v-if="conn.favourite" class="favourite-star" title="Favourite">★</span>
-            <span v-else class="status-dot" :class="getStatusClass(conn)" :title="getStatusText(conn)"></span>
-            <div class="connection-item-info">
-              <span class="connection-name">{{ conn.name }}</span>
-              <span class="connection-address mono text-muted text-sm">{{ conn.host }}:{{ conn.port }}</span>
-            </div>
+        <template v-if="favouriteConnections.length">
+          <div class="list-separator">
+            <span class="separator-text">Favourites</span>
           </div>
-          <button
-            v-if="selectedConnection?.id !== conn.id && store.connectionStatuses[conn.id]?.status !== 'connected' && store.connectionStatuses[conn.id]?.status !== 'connecting' && !store.hasActiveConnection"
-            class="connect-btn-small"
-            @click.stop="connectTo(conn)"
-            title="Connect"
+          <div
+            v-for="conn in favouriteConnections"
+            :key="conn.id"
+            class="connection-item"
+            :class="{ active: selectedConnection?.id === conn.id }"
+            @click="selectConnection(conn)"
           >
-            <span class="mdi mdi-play"></span>
-          </button>
-        </div>
+            <div class="connection-item-main">
+              <span class="mdi mdi-star favourite-star" :class="getStatusClass(conn)" :title="getStatusText(conn)"></span>
+              <div class="connection-item-info">
+                <span class="connection-name">{{ conn.name }}</span>
+                <span class="connection-address mono text-muted text-sm">{{ conn.host }}:{{ conn.port }}</span>
+              </div>
+            </div>
+            <button
+              v-if="selectedConnection?.id !== conn.id && store.connectionStatuses[conn.id]?.status !== 'connected' && store.connectionStatuses[conn.id]?.status !== 'connecting' && !store.hasActiveConnection"
+              class="connect-btn-small"
+              @click.stop="connectTo(conn)"
+              title="Connect"
+            >
+              <span class="mdi mdi-play"></span>
+            </button>
+          </div>
+        </template>
+
+        <template v-if="regularConnections.length">
+          <div v-if="favouriteConnections.length" class="list-separator">
+            <span class="separator-text">Others</span>
+          </div>
+          <div
+            v-for="conn in regularConnections"
+            :key="conn.id"
+            class="connection-item"
+            :class="{ active: selectedConnection?.id === conn.id }"
+            @click="selectConnection(conn)"
+          >
+            <div class="connection-item-main">
+              <span class="status-dot" :class="getStatusClass(conn)" :title="getStatusText(conn)"></span>
+              <div class="connection-item-info">
+                <span class="connection-name">{{ conn.name }}</span>
+                <span class="connection-address mono text-muted text-sm">{{ conn.host }}:{{ conn.port }}</span>
+              </div>
+            </div>
+            <button
+              v-if="selectedConnection?.id !== conn.id && store.connectionStatuses[conn.id]?.status !== 'connected' && store.connectionStatuses[conn.id]?.status !== 'connecting' && !store.hasActiveConnection"
+              class="connect-btn-small"
+              @click.stop="connectTo(conn)"
+              title="Connect"
+            >
+              <span class="mdi mdi-play"></span>
+            </button>
+          </div>
+        </template>
 
         <div v-if="!filteredConnections?.length" class="empty-state">
           <span class="mdi mdi-connection icon"></span>
@@ -447,11 +478,16 @@ onMounted(() => {
       <div v-if="selectedConnection" class="connection-details">
         <div class="details-header">
           <div class="details-header-left">
-            <h2>{{ selectedConnection.name }}</h2>
-            <span class="badge" :class="getStatusClass(selectedConnection)">{{ getStatusText(selectedConnection) }}</span>
+            <div class="title-row">
+              <h2>{{ selectedConnection.name }}</h2>
+              <span class="badge" :class="getStatusClass(selectedConnection)">{{ getStatusText(selectedConnection) }}</span>
+            </div>
+            <span class="connection-caption text-muted text-sm">
+              {{ selectedConnection.lastConnected ? formatLastConnected(selectedConnection.lastConnected) : 'Never connected' }}
+            </span>
           </div>
           <button class="btn btn-ghost btn-icon" :title="selectedConnection.favourite ? 'Remove from favorites' : 'Add to favorites'" @click="toggleFavorite(selectedConnection)">
-            <span class="mdi" :class="selectedConnection.favourite ? 'mdi-star' : 'mdi-star-outline'"></span>
+            <span class="mdi" :class="selectedConnection.favourite ? 'mdi-star-off' : 'mdi-star-outline'"></span>
           </button>
         </div>
 
@@ -505,10 +541,6 @@ onMounted(() => {
             <div class="info-row">
               <span class="info-label">Default Subscriptions</span>
               <span class="info-value mono">{{ selectedConnection.defaultSubscriptions || '-' }}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Last Connected</span>
-              <span class="info-value">{{ selectedConnection.lastConnected ? formatLastConnected(selectedConnection.lastConnected) : 'Never' }}</span>
             </div>
           </div>
 
@@ -668,6 +700,22 @@ onMounted(() => {
   padding: 8px;
 }
 
+.list-separator {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px 4px;
+  margin-top: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.separator-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .connection-item {
   display: flex;
   align-items: center;
@@ -750,9 +798,26 @@ onMounted(() => {
 }
 
 .favourite-star {
-  font-size: 14px;
-  color: #f59e0b;
+  font-size: 16px !important;
   flex-shrink: 0;
+  width: 0;
+  margin-right: 16px;
+}
+
+.favourite-star.badge-success {
+  color: #22c55e !important;
+}
+
+.favourite-star.badge-warning {
+  color: #f59e0b !important;
+}
+
+.favourite-star.badge-error {
+  color: #ef4444 !important;
+}
+
+.favourite-star.badge-default {
+  color: var(--color-muted-foreground) !important;
 }
 
 .connect-btn-small {
@@ -808,6 +873,12 @@ onMounted(() => {
 
 .details-header-left {
   display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title-row {
+  display: flex;
   align-items: center;
   gap: 12px;
 }
@@ -815,6 +886,10 @@ onMounted(() => {
 .details-header h2 {
   font-size: 20px;
   font-weight: 600;
+}
+
+.connection-caption {
+  font-size: 12px;
 }
 
 .details-content {
