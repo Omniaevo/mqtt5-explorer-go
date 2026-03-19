@@ -94,12 +94,23 @@ jobs:
         shell: bash
 
       # Upload build assets
-      - name: Upload
+      - name: Upload for Linux and Windows
         uses: actions/upload-artifact@v7
+        if: runner.os != 'macOS'
         env:
           GITHUB_TOKEN: ${{ secrets.PUBLISHING_TOKEN }}
         with:
           name: ${{ matrix.build.name }}
+          path: |
+            */bin/
+            *\bin\*
+      - name: Upload for MacOS
+        uses: actions/upload-artifact@v7
+        if: runner.os == 'macOS'
+        env:
+          GITHUB_TOKEN: ${{ secrets.PUBLISHING_TOKEN }}
+        with:
+          name: ${{ matrix.build.name }}.app
           path: |
             */bin/
             *\bin\*
