@@ -18,18 +18,23 @@ jobs:
       matrix:
         build:
           - name: mqtt5-explorer-go-${{ github.ref_name }}-linux-amd64
+            target: 'Linux (amd64)'
             platform: 'linux/amd64'
             os: 'ubuntu-latest'
           - name: mqtt5-explorer-go-${{ github.ref_name }}-linux-arm64
+            target: 'Linux (arm64)'
             platform: 'linux/arm64'
             os: 'ubuntu-24.04-arm' # arm64 version
           - name: mqtt5-explorer-go-${{ github.ref_name }}-windows-amd64.exe
+            target: 'Windows (amd64)'
             platform: 'windows/amd64'
             os: 'windows-latest'
           - name: mqtt5-explorer-go-${{ github.ref_name }}-windows-arm64.exe
+            target: 'Windows (arm64)'
             platform: 'windows/arm64'
             os: 'windows-11-arm' # arm64 version
           - name: mqtt5-explorer-go-${{ github.ref_name }}-darwin-universal
+            target: 'MacOS (universal)'
             platform: 'darwin/universal' # arm64 + amd64
             os: 'macos-latest'
 
@@ -107,7 +112,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PUBLISHING_TOKEN }}
         with:
-          name: MQTT5 Explorer (Go) for ${{ runner.os }} (${{ matrix.build.platform }})
+          name: MQTT5 Explorer (Go) for ${{ matrix.build.target }}
           path: |
             */bin/
             *\bin\*
