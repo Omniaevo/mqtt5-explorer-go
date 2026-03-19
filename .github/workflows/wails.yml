@@ -99,7 +99,7 @@ jobs:
         working-directory: '.'
         shell: bash
         run: |
-          ditto -c -k --keepParent ./build/bin/${{ matrix.build.name }}.app ./build/bin/${{ matrix.build.name }}.app.zip
+          ditto -c -k --keepParent ./build/bin/mqtt5-explorer-go.app ./build/bin/${{ matrix.build.name }}.app.zip
 
       # Upload build assets
       - name: Upload
@@ -107,7 +107,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PUBLISHING_TOKEN }}
         with:
-          name: MQTT5 Explorer (Go) for ${{ runner.os }}
+          name: MQTT5 Explorer (Go) for ${{ runner.os }} (${{ matrix.build.platform }})
           path: |
             */bin/
             *\bin\*
