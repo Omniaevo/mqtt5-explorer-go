@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useAppStore } from '../stores/app'
 import type { Settings } from '../types'
+import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
 
 const store = useAppStore()
 
@@ -79,7 +80,7 @@ async function importFromOldVersion(event: Event) {
 }
 
 function openGitHub() {
-  window.open('https://github.com/anomalyco/mqtt5-explorer-go/issues', '_blank')
+  BrowserOpenURL('https://github.com/Omniaevo/mqtt5-explorer-go/issues')
 }
 
 onMounted(() => {

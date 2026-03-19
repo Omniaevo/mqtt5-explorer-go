@@ -6,11 +6,11 @@ on:
       - '**'
     tags:
       - v[0-9]+.[0-9]+.[0-9]+
-  workflow_dispatch: # allows manual trigger from GitHub UI
 
 env:
   # Prevents OOM errors during Node/Vue build
   NODE_OPTIONS: "--max-old-space-size=4096"
+  NAME_BASE: "mqtt5-explorer-go-${{ github.ref_name }}"
 
 jobs:
   build:
@@ -18,36 +18,90 @@ jobs:
       fail-fast: false # a failure on one platform won't cancel the others
       matrix:
         build:
-          - name: 'Linux'
-            artifact: 'mqtt5-explorer-go-linux-amd64'
+          - name: ${NAME_BASE}-linux-amd64
             platform: 'linux/amd64'
             os: 'ubuntu-latest'
-          - name: 'Windows'
-            artifact: 'mqtt5-explorer-go-windows-amd64.exe'
+          - name: ${NAME_BASE}-linux-arm64
+            platform: 'linux/arm64'
+            os: 'ubuntu-24.04-arm' # arm64 version
+          - name: ${NAME_BASE}-windows-amd64.exe
             platform: 'windows/amd64'
             os: 'windows-latest'
-          - name: 'MacOS'
-            artifact: 'mqtt5-explorer-go'
-            platform: 'darwin/universal' # builds fat binary for arm64 + amd64
+          - name: ${NAME_BASE}-windows-arm64.exe
+            platform: 'windows/arm64'
+            os: 'windows-11-arm' # arm64 version
+          - name: ${NAME_BASE}-darwin-universal
+            platform: 'darwin/universal' # arm64 + amd64
             os: 'macos-latest'
 
     runs-on: ${{ matrix.build.os }}
 
     steps:
+      # Checkout the project
       - name: Checkout
         uses: actions/checkout@v6
         with:
           submodules: recursive
 
-      - name: Build
-        uses: The-Egg-Corp/wails-build-action@v2.1
+      # Setup development environment
+      - name: Setup GoLang environment
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+          cache-dependency-path: 'go.sum'
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+
+      # Install Wails and platform dependencies
+      - name: Install Linux Wails dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+        shell: bash
+      - name: Install MacOS Wails dependencies
+        if: runner.os == 'macOS'
+        run: brew install mitchellh/gon/gon
+        shell: bash
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+        shell: bash
+
+      # Build Step
+      - name: Build app for selected OS
+        working-directory: '.'
+        run: |
+          wails build -platform ${{ matrix.build.platform }} -webview2 embed -o ${{ matrix.build.name }}
+        shell: bash
+
+      # Executable permissions
+      - name: Post-build actions for Linux
+        if: runner.os == 'Linux'
+        run: chmod a+x build/bin/*
+        shell: bash
+      - name: Post-build actions for MacOS
+        if: runner.os == 'macOS'
+        working-directory: '.'
+        run: chmod +x build/bin/*/Contents/MacOS/*
+        shell: bash
+
+      # Upload build assets
+      - name: Upload
+        uses: actions/upload-artifact@v7
         env:
           GITHUB_TOKEN: ${{ secrets.PUBLISHING_TOKEN }}
         with:
-          build-name: ${{ matrix.build.artifact }}
-          build-platform: ${{ matrix.build.platform }}
-          go-version: '1.24'
-          node-version: '24.x'
-          wails-version: 'v2.11.0'
-          nsis: false # Set to true to create an installer.
-          package: true # uploads artifact; also publishes to release on tag
+          name: ${{ matrix.build.name }} ${{runner.os}}
+          path: |
+            */bin/
+            *\bin\*
+      - name: Release
+        uses: softprops/action-gh-release@v2.6.1
+        if: github.ref_type == 'tag'
+        env:
+          GITHUB_TOKEN: ${{ secrets.PUBLISHING_TOKEN }}
+        with:
+          files: |
+            */bin/*
