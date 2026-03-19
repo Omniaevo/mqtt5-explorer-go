@@ -42,6 +42,9 @@ jobs:
         uses: actions/checkout@v6
         with:
           submodules: recursive
+      - name: Export package name
+        run: |
+          export PKG_NAME=$(echo ${{ matrix.build.name }})
 
       # Setup development environment
       - name: Setup GoLang environment
@@ -70,10 +73,16 @@ jobs:
         shell: bash
 
       # Build Step
-      - name: Build app for selected OS
+      - name: Build app for MacOS and Windows
         working-directory: '.'
         run: |
           wails build -platform ${{ matrix.build.platform }} -webview2 embed -o ${{ matrix.build.name }}
+        shell: bash
+      - name: Build app for Linux
+        if: runner.os == 'Linux'
+        working-directory: '.'
+        run: |
+          wails build -platform ${{ matrix.build.platform }} -webview2 embed -o ${{ matrix.build.name }} -tags webkit2_41
         shell: bash
 
       # Executable permissions
@@ -93,15 +102,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PUBLISHING_TOKEN }}
         with:
-          name: ${{ matrix.build.name }} ${{runner.os}}
+          name: $PKG_NAME
           path: |
             */bin/
             *\bin\*
       - name: Release
-        uses: softprops/action-gh-release@v2.6.1
+        uses: softprops/action-gh-release@v2
         if: github.ref_type == 'tag'
-        env:
-          GITHUB_TOKEN: ${{ secrets.PUBLISHING_TOKEN }}
         with:
+          token: ${{ secrets.PUBLISHING_TOKEN }}
           files: |
             */bin/*
