@@ -93,24 +93,21 @@ jobs:
         run: chmod +x build/bin/*/Contents/MacOS/*
         shell: bash
 
-      # Upload build assets
-      - name: Upload for Linux and Windows
-        uses: actions/upload-artifact@v7
-        if: runner.os != 'macOS'
-        env:
-          GITHUB_TOKEN: ${{ secrets.PUBLISHING_TOKEN }}
-        with:
-          name: ${{ matrix.build.name }}
-          path: |
-            */bin/
-            *\bin\*
-      - name: Upload for MacOS
-        uses: actions/upload-artifact@v7
+      # Building zip archive for MacOS
+      - name: Build .app zip file
         if: runner.os == 'macOS'
+        working-directory: '.'
+        shell: bash
+        run: |
+          ditto -c -k --keepParent ./build/bin/${{ matrix.build.name }}.app ./build/bin/${{ matrix.build.name }}.app.zip
+
+      # Upload build assets
+      - name: Upload
+        uses: actions/upload-artifact@v7
         env:
           GITHUB_TOKEN: ${{ secrets.PUBLISHING_TOKEN }}
         with:
-          name: ${{ matrix.build.name }}.app
+          name: MQTT5 Explorer (Go) for ${{ runner.os }}
           path: |
             */bin/
             *\bin\*
