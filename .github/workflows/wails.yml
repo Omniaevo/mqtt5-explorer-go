@@ -10,7 +10,6 @@ on:
 env:
   # Prevents OOM errors during Node/Vue build
   NODE_OPTIONS: "--max-old-space-size=4096"
-  NAME_BASE: "mqtt5-explorer-go-${{ github.ref_name }}"
 
 jobs:
   build:
@@ -18,19 +17,19 @@ jobs:
       fail-fast: false # a failure on one platform won't cancel the others
       matrix:
         build:
-          - name: ${NAME_BASE}-linux-amd64
+          - name: mqtt5-explorer-go-${{ github.ref_name }}-linux-amd64
             platform: 'linux/amd64'
             os: 'ubuntu-latest'
-          - name: ${NAME_BASE}-linux-arm64
+          - name: mqtt5-explorer-go-${{ github.ref_name }}-linux-arm64
             platform: 'linux/arm64'
             os: 'ubuntu-24.04-arm' # arm64 version
-          - name: ${NAME_BASE}-windows-amd64.exe
+          - name: mqtt5-explorer-go-${{ github.ref_name }}-windows-amd64.exe
             platform: 'windows/amd64'
             os: 'windows-latest'
-          - name: ${NAME_BASE}-windows-arm64.exe
+          - name: mqtt5-explorer-go-${{ github.ref_name }}-windows-arm64.exe
             platform: 'windows/arm64'
             os: 'windows-11-arm' # arm64 version
-          - name: ${NAME_BASE}-darwin-universal
+          - name: mqtt5-explorer-go-${{ github.ref_name }}-darwin-universal
             platform: 'darwin/universal' # arm64 + amd64
             os: 'macos-latest'
 
@@ -42,9 +41,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           submodules: recursive
-      - name: Export package name
-        run: |
-          export PKG_NAME=$(echo ${{ matrix.build.name }})
 
       # Setup development environment
       - name: Setup GoLang environment
@@ -102,7 +98,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PUBLISHING_TOKEN }}
         with:
-          name: $PKG_NAME
+          name: ${{ matrix.build.name }}
           path: |
             */bin/
             *\bin\*
