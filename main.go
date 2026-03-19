@@ -35,7 +35,7 @@ func main() {
 			app,
 		},
 		Mac: &mac.Options{
-			TitleBar: mac.TitleBarHidden(),
+			TitleBar: mac.TitleBarDefault(),
 		},
 	})
 
