@@ -70,6 +70,7 @@ jobs:
 
       # Build Step
       - name: Build app for MacOS and Windows
+        if: runner.os != 'Linux'
         working-directory: '.'
         run: |
           wails build -platform ${{ matrix.build.platform }} -webview2 embed -o ${{ matrix.build.name }}
