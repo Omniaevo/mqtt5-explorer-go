@@ -218,13 +218,7 @@ function closeTopic() {
 
 function deleteTopic() {
   if (store.selectedTopic && store.currentConnectionId) {
-    store.sendMessage({
-      connectionId: store.currentConnectionId,
-      topic: store.selectedTopic,
-      payload: '',
-      qos: 0,
-      retain: true
-    })
+    store.deleteTopicSubtree(store.selectedTopic)
     store.showToast('Delete command sent for ' + store.selectedTopic)
     store.selectedTopic = null
     valueSearchQuery.value = ''
@@ -403,6 +397,25 @@ const totalMessageCount = computed(() => {
 
 function handleTopicDelete(topic: string) {
   knownTopics.value.delete(topic)
+  
+  const parts = topic.split('/')
+  for (let i = 1; i < parts.length; i++) {
+    const parent = parts.slice(0, i).join('/')
+    if (!knownTopics.value.has(parent)) {
+      break
+    }
+    
+    const hasRemainingChildren = Array.from(knownTopics.value.keys()).some(t => 
+      t !== parent && t.startsWith(parent + '/')
+    )
+    
+    const parentData = knownTopics.value.get(parent)
+    if (!hasRemainingChildren && (!parentData || parentData.count === 0)) {
+      knownTopics.value.delete(parent)
+    } else {
+      break
+    }
+  }
 }
 
 onMounted(() => {

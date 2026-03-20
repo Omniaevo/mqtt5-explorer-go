@@ -34,6 +34,7 @@ declare global {
           GetTopicTree: (connectionId: number) => Promise<TopicNode>
           GetNumericMessages: (connectionId: number, topic: string, limit: number) => Promise<Message[]>
           GetVersion: () => Promise<string>
+          DeleteTopicSubtree: (connectionId: number, topic: string) => Promise<void>
         }
       }
     }
@@ -336,6 +337,16 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+  async function deleteTopicSubtree(topic: string) {
+    if (!currentConnectionId.value) return
+    try {
+      await window.go.main.App.DeleteTopicSubtree(currentConnectionId.value, topic)
+    } catch (error) {
+      console.error('Failed to delete topic subtree:', error)
+      throw error
+    }
+  }
+
   async function subscribe(topic: string, qos: number = 0) {
     if (!currentConnectionId.value) return
     try {
@@ -435,6 +446,7 @@ export const useAppStore = defineStore('app', () => {
     clearMessages,
     loadTopicTree,
     sendMessage,
+    deleteTopicSubtree,
     subscribe,
     unsubscribe,
     exportConnections,

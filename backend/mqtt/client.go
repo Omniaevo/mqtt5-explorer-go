@@ -348,6 +348,35 @@ func (c *Client) SendMessage(ctx context.Context, req *models.SendMessageRequest
 	return nil
 }
 
+func (c *Client) DeleteTopicSubtree(ctx context.Context, connectionID int64, topic string) error {
+	allTopics, err := database.DB.GetAllTopics(ctx, connectionID)
+	if err != nil {
+		return err
+	}
+
+	var topicsToDelete []string
+	for _, t := range allTopics {
+		if t == topic || strings.HasPrefix(t, topic+"/") {
+			topicsToDelete = append(topicsToDelete, t)
+		}
+	}
+
+	for _, t := range topicsToDelete {
+		req := &models.SendMessageRequest{
+			ConnectionID: connectionID,
+			Topic:        t,
+			Payload:      "",
+			QoS:          0,
+			Retain:       true,
+		}
+		if err := c.SendMessage(ctx, req); err != nil {
+			log.Printf("[MQTT] Error deleting topic %s: %v", t, err)
+		}
+	}
+
+	return nil
+}
+
 func (c *Client) GetStatus(connectionID int64) (bool, string) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()

@@ -108,6 +108,9 @@ func messageListener(ctx context.Context) {
 		case msg := <-messageChan:
 			data, _ := json.Marshal(msg)
 			runtime.EventsEmit(ctx, "mqtt-message", string(data))
+			if len(msg.Payload) == 0 {
+				runtime.EventsEmit(ctx, "topic-delete", msg.Topic)
+			}
 		}
 	}
 }
@@ -231,6 +234,10 @@ func (a *App) SendMessage(req *models.SendMessageRequest) error {
 	return h.SendMessage(context.Background(), req)
 }
 
+func (a *App) DeleteTopicSubtree(connectionID int64, topic string) error {
+	return h.DeleteTopicSubtree(context.Background(), connectionID, topic)
+}
+
 func (a *App) Subscribe(connectionID int64, topic string, qos int) error {
 	return h.Subscribe(context.Background(), connectionID, topic, qos)
 }
@@ -255,14 +262,14 @@ func (a *App) CheckPort(host string, port int) bool {
 	return h.CheckPort(context.Background(), host, port)
 }
 
-func (a *App) GetVersion() (string) {
-  var config struct {
-    Info struct {
-      ProductVersion string `json:"productVersion"`
-    } `json:"info"`
-  }
+func (a *App) GetVersion() string {
+	var config struct {
+		Info struct {
+			ProductVersion string `json:"productVersion"`
+		} `json:"info"`
+	}
 
-  json.Unmarshal(WailsJSON, &config)
+	json.Unmarshal(WailsJSON, &config)
 
-  return config.Info.ProductVersion
+	return config.Info.ProductVersion
 }
