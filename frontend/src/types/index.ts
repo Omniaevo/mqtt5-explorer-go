@@ -53,6 +53,7 @@ export interface TopicNode {
   children: Record<string, TopicNode>
   messageCount: number
   lastMessage?: Message
+  lastPayload?: string
 }
 
 export interface SendMessageRequest {

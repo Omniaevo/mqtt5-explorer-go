@@ -13,6 +13,7 @@ import {
   DialogClose,
   DialogOverlay
 } from 'radix-vue'
+import { EventsOn } from '../../wailsjs/runtime/runtime'
 
 const store = useAppStore()
 const router = useRouter()
@@ -32,9 +33,8 @@ const topicSearchMode = ref<SearchMode>('substring')
 const valueSearchQuery = ref('')
 const valueSearchMode = ref<SearchMode>('substring')
 const expandedNodes = ref<Set<string>>(new Set())
-const flashingTopics = ref<Set<string>>(new Set())
 const sidebarWidth = ref(380)
-const knownTopics = ref<Map<string, { count: number; level: number }>>(new Map())
+const knownTopics = ref<Map<string, { count: number; level: number; lastPayload: string }>>(new Map())
 
 function startResize(e: MouseEvent) {
   document.body.style.userSelect = 'none'
@@ -123,9 +123,9 @@ function loadToSendPanel(msg: Message) {
 }
 
 const uniqueTopics = computed(() => {
-  const topics: { topic: string; count: number; level: number }[] = []
+  const topics: { topic: string; count: number; level: number; lastPayload: string }[] = []
   knownTopics.value.forEach((value, topic) => {
-    topics.push({ topic, count: value.count, level: value.level })
+    topics.push({ topic, count: value.count, level: value.level, lastPayload: value.lastPayload })
   })
   return topics.sort((a, b) => a.topic.localeCompare(b.topic))
 })
@@ -135,8 +135,9 @@ function collectTopicsFromTree(node: TopicNode, level: number = 0) {
     const existing = knownTopics.value.get(node.fullTopic)
     if (existing) {
       existing.count = node.messageCount || 0
+      existing.lastPayload = node.lastPayload || ''
     } else {
-      knownTopics.value.set(node.fullTopic, { count: node.messageCount || 0, level })
+      knownTopics.value.set(node.fullTopic, { count: node.messageCount || 0, level, lastPayload: node.lastPayload || '' })
     }
   }
   if (node.children) {
@@ -297,8 +298,44 @@ function getChildrenCount(topic: string): number {
   return childTopics.length
 }
 
+function isMetadataNode(topic: string): boolean {
+  const segments = topic.split('/')
+  return segments.some(seg => seg.startsWith('$'))
+}
+
+function hasOnlyMetadataChildren(topic: string): boolean {
+  const children = uniqueTopics.value.filter(t => {
+    const tParts = t.topic.split('/')
+    const topicParts = topic.split('/')
+    return t.topic.startsWith(topic + '/') && tParts.length === topicParts.length + 1
+  })
+  if (children.length === 0) return false
+  return children.every(c => {
+    const lastSegment = c.topic.split('/').pop() || ''
+    return lastSegment.startsWith('$')
+  })
+}
+
+function isNodeMetadata(topic: string): boolean {
+  const lastSegment = topic.split('/').pop() || ''
+  return lastSegment.startsWith('$')
+}
+
 function getTopicIcon(topic: string, isBranch: boolean, isSelected: boolean): string {
+  const lastSegment = topic.split('/').pop() || ''
+  if (lastSegment.startsWith('$')) {
+    if (isSelected) {
+      return 'mdi-information'
+    }
+    return 'mdi-information-outline'
+  }
   if (isBranch) {
+    if (hasOnlyMetadataChildren(topic)) {
+      if (isSelected || isExpanded(topic)) {
+        return 'mdi-file'
+      }
+      return 'mdi-file-outline'
+    }
     if (isSelected || isExpanded(topic)) {
       return 'mdi-folder-open'
     }
@@ -347,7 +384,7 @@ function formatTime(timestamp: string): string {
 }
 
 let messageInterval: number
-let previousMessageCount = 0
+let unsubscribeTopicDelete: (() => void) | null = null
 
 function countAllMessages(node: TopicNode): number {
   let count = node.messageCount || 0
@@ -364,32 +401,8 @@ const totalMessageCount = computed(() => {
   return countAllMessages(store.topicTree)
 })
 
-function triggerFlash(topic: string) {
-  flashingTopics.value.add(topic)
-  const segments = topic.split('/')
-  for (let i = 1; i < segments.length; i++) {
-    const parentTopic = segments.slice(0, i).join('/')
-    flashingTopics.value.add(parentTopic)
-  }
-  setTimeout(() => {
-    flashingTopics.value.delete(topic)
-    segments.forEach((_, i) => {
-      if (i > 0) {
-        flashingTopics.value.delete(segments.slice(0, i).join('/'))
-      }
-    })
-  }, 200)
-}
-
-function handleNewMessage() {
-  const newCount = totalMessageCount.value
-  if (newCount > previousMessageCount && previousMessageCount > 0) {
-    if (store.topicTree && store.topicTree.lastMessage) {
-      const topic = store.topicTree.lastMessage.topic
-      triggerFlash(topic)
-    }
-  }
-  previousMessageCount = newCount
+function handleTopicDelete(topic: string) {
+  knownTopics.value.delete(topic)
 }
 
 onMounted(() => {
@@ -401,16 +414,15 @@ onMounted(() => {
     })
   }
 
+  unsubscribeTopicDelete = EventsOn('topic-delete', (topic: string) => {
+    handleTopicDelete(topic)
+  })
+
   messageInterval = window.setInterval(() => {
     if (store.isConnected) {
-      const prevCount = totalMessageCount.value
       store.loadTopicTree().then(() => {
         if (store.topicTree && store.topicTree.children) {
           Object.values(store.topicTree.children).forEach(child => collectTopicsFromTree(child, 0))
-          const newCount = countAllMessages(store.topicTree)
-          if (newCount > prevCount && store.topicTree.lastMessage) {
-            triggerFlash(store.topicTree.lastMessage.topic)
-          }
         }
       })
 
@@ -424,6 +436,9 @@ onMounted(() => {
 onUnmounted(() => {
   if (messageInterval) {
     clearInterval(messageInterval)
+  }
+  if (unsubscribeTopicDelete) {
+    unsubscribeTopicDelete()
   }
 })
 
@@ -439,10 +454,6 @@ watch(() => store.isConnected, (connected) => {
     store.selectedTopic = null
   }
 })
-
-watch(() => store.messages, () => {
-  handleNewMessage()
-}, { deep: true })
 </script>
 
 <template>
@@ -500,10 +511,10 @@ watch(() => store.messages, () => {
             v-if="isVisible(item.topic, item.level)"
             class="topic-row"
             :class="{
-              active: store.selectedTopic === item.topic,
-              flashing: flashingTopics.has(item.topic)
+              active: store.selectedTopic === item.topic
             }"
             :style="{ paddingLeft: (item.level * 16 + 8) + 'px' }"
+            @click="selectTopic(item.topic)"
           >
             <span
               v-if="hasChildren(item.topic)"
@@ -517,7 +528,8 @@ watch(() => store.messages, () => {
               class="mdi topic-icon"
               :class="getTopicIcon(item.topic, hasChildren(item.topic), store.selectedTopic === item.topic)"
             ></span>
-            <span class="topic-name truncate" @click="selectTopic(item.topic)">{{ getLastSegment(item.topic) }}</span>
+            <span class="topic-name truncate" :class="{ 'italic': isNodeMetadata(item.topic) }">{{ getLastSegment(item.topic) }}</span>
+            <span v-if="item.lastPayload" class="topic-payload" :class="{ 'active': store.selectedTopic === item.topic }" :title="item.lastPayload">= {{ item.lastPayload.slice(0, 30) }}</span>
             <span v-if="hasChildren(item.topic)" class="badge badge-default" :title="getChildrenCount(item.topic) + ' sub-topics'"><span class="mdi mdi-file-tree"></span>{{ getChildrenCount(item.topic) }}</span>
           </div>
         </template>
@@ -922,24 +934,6 @@ watch(() => store.messages, () => {
   color: white;
 }
 
-.topic-row.flashing {
-  animation: flash 0.2s ease;
-}
-
-@keyframes flash {
-  0%, 100% { background: transparent; }
-  50% { background: var(--color-primary); }
-}
-
-.topic-row.active.flashing {
-  animation: flash-active 0.2s ease;
-}
-
-@keyframes flash-active {
-  0%, 100% { background: var(--color-primary); }
-  50% { background: var(--color-accent); }
-}
-
 .expand-icon {
   width: 20px;
   height: 20px;
@@ -960,11 +954,32 @@ watch(() => store.messages, () => {
 }
 
 .topic-name {
-  flex: 1;
   font-size: 13px;
+  flex-shrink: 0;
+}
+
+.topic-name.italic {
+  font-style: italic;
+}
+
+.topic-payload {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-muted-foreground);
+  background: var(--color-muted);
+  padding: 2px 6px;
+  border-radius: 4px;
+  max-width: 200px;
+  margin-left: 4px;
+}
+
+.topic-payload.active {
+  color: white;
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .badge {
+  margin-left: auto;
   font-size: 11px;
   padding: 1px 6px;
   background: var(--color-muted);

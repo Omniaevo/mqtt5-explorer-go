@@ -508,6 +508,28 @@ func (d *Database) GetTopicStats(ctx context.Context, connectionID int64) (map[s
 	return stats, nil
 }
 
+func (d *Database) GetAllTopics(ctx context.Context, connectionID int64) ([]string, error) {
+	rows, err := d.db.QueryContext(ctx, `
+		SELECT DISTINCT topic FROM messages 
+		WHERE connection_id = ? ORDER BY topic`,
+		connectionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var topics []string
+	for rows.Next() {
+		var topic string
+		if err := rows.Scan(&topic); err != nil {
+			return nil, err
+		}
+		topics = append(topics, topic)
+	}
+
+	return topics, nil
+}
+
 func (d *Database) GetNumericMessages(ctx context.Context, connectionID int64, topic string, limit int) ([]models.Message, error) {
 	rows, err := d.db.QueryContext(ctx, `
 		SELECT id, connection_id, topic, payload, qos, retain, timestamp, content_type,

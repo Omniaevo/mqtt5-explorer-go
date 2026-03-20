@@ -244,7 +244,7 @@ func (c *Client) handleMessage(connectionID int64, publish *paho.Publish) {
 }
 
 func (c *Client) buildBrokerURL(conn *models.Connection) string {
-  return fmt.Sprintf("%s://%s:%d", conn.Protocol, conn.Host, conn.Port)
+	return fmt.Sprintf("%s://%s:%d", conn.Protocol, conn.Host, conn.Port)
 }
 
 func (c *Client) subscribeToDefaults(conn *models.Connection) {
@@ -508,6 +508,9 @@ func BuildTopicTree(messages []models.Message) *models.TopicNode {
 				current.FullTopic = topic
 				current.MessageCount = topicStats[topic]
 				current.LastMessage = topicLastMsg[topic]
+				if topicLastMsg[topic] != nil {
+					current.LastPayload = string(topicLastMsg[topic].Payload)
+				}
 			}
 		}
 	}
