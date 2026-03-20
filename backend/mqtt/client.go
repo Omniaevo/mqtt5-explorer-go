@@ -244,18 +244,7 @@ func (c *Client) handleMessage(connectionID int64, publish *paho.Publish) {
 }
 
 func (c *Client) buildBrokerURL(conn *models.Connection) string {
-	switch conn.Protocol {
-	case "mqtt":
-		return fmt.Sprintf("tcp://%s:%d", conn.Host, conn.Port)
-	case "mqtts":
-		return fmt.Sprintf("ssl://%s:%d", conn.Host, conn.Port)
-	case "ws":
-		return fmt.Sprintf("ws://%s:%d/mqtt", conn.Host, conn.Port)
-	case "wss":
-		return fmt.Sprintf("wss://%s:%d/mqtt", conn.Host, conn.Port)
-	default:
-		return fmt.Sprintf("tcp://%s:%d", conn.Host, conn.Port)
-	}
+  return fmt.Sprintf("%s://%s:%d", conn.Protocol, conn.Host, conn.Port)
 }
 
 func (c *Client) subscribeToDefaults(conn *models.Connection) {
