@@ -224,6 +224,7 @@ function deleteTopic() {
       qos: 0,
       retain: true
     })
+    store.showToast('Delete command sent for ' + store.selectedTopic)
     store.selectedTopic = null
     valueSearchQuery.value = ''
   }
