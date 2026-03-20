@@ -46,6 +46,8 @@ const formData = ref({
   favourite: false
 })
 
+let isCloning = false
+
 const caFileInputRef = ref<HTMLInputElement | null>(null)
 const clientCertInputRef = ref<HTMLInputElement | null>(null)
 const clientKeyInputRef = ref<HTMLInputElement | null>(null)
@@ -126,9 +128,10 @@ watch(searchQuery, (val) => {
 
 watch(showDialog, (isOpen) => {
   if (isOpen) {
-    if (!editingConnection.value) {
+    if (!editingConnection.value && !isCloning) {
       openNewConnection()
     }
+    isCloning = false
   } else {
     editingConnection.value = null
     resetForm()
@@ -174,6 +177,27 @@ function openEditConnection(conn: Connection) {
     clientKey: conn.clientKey || '',
     defaultSubscriptions: conn.defaultSubscriptions || '',
     favourite: conn.favourite
+  }
+  showDialog.value = true
+}
+
+function openCloneConnection(conn: Connection) {
+  isCloning = true
+  editingConnection.value = null
+  formData.value = {
+    name: '',
+    mqttVersion: conn.mqttVersion,
+    protocol: conn.protocol,
+    host: conn.host,
+    port: conn.port,
+    username: conn.username || '',
+    password: conn.password || '',
+    validateCert: conn.validateCert,
+    caFile: conn.caFile || '',
+    clientCert: conn.clientCert || '',
+    clientKey: conn.clientKey || '',
+    defaultSubscriptions: conn.defaultSubscriptions || '',
+    favourite: false
   }
   showDialog.value = true
 }
@@ -548,6 +572,10 @@ onMounted(() => {
             <button class="btn btn-flat btn-flat-secondary" @click="openEditConnection(selectedConnection)">
               <span class="mdi mdi-pencil"></span>
               Edit
+            </button>
+            <button class="btn btn-flat btn-flat-secondary" @click="openCloneConnection(selectedConnection)">
+              <span class="mdi mdi-content-copy"></span>
+              Clone
             </button>
             <button class="btn btn-flat btn-flat-danger" @click="confirmDeleteConnection(selectedConnection)">
               <span class="mdi mdi-delete"></span>
