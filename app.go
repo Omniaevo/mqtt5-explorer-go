@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"log"
 	"os"
@@ -13,14 +14,20 @@ import (
 	"mqtt5-explorer-go/backend/models"
 	"mqtt5-explorer-go/backend/mqtt"
 
+	"github.com/getlantern/systray"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+//go:embed build/appicon.png
+var iconData []byte
+
 var (
-	h           *handlers.Handlers
-	mqttClient  *mqtt.Client
-	messageChan chan *models.Message
-	appCtx      context.Context
+	h             *handlers.Handlers
+	mqttClient    *mqtt.Client
+	messageChan   chan *models.Message
+	appCtx        context.Context
+	closeToTray   bool
+	windowVisible bool
 )
 
 type App struct {
@@ -48,6 +55,8 @@ func (a *App) startup(ctx context.Context) {
 
 	settings, _ := database.DB.GetAllSettings(context.Background())
 
+	closeToTray = settings["closeToTray"] == "true"
+
 	messageChan = make(chan *models.Message, 1000)
 	mqttClient = mqtt.NewClient(messageChan, onConnect, onDisconnect)
 	mqttClient.UpdateSettings(settings)
@@ -56,7 +65,50 @@ func (a *App) startup(ctx context.Context) {
 
 	h = handlers.NewHandlers(mqttClient)
 
+	if closeToTray {
+		setupTray(ctx)
+		windowVisible = false
+	} else {
+		windowVisible = true
+	}
+
 	log.Printf("Application started successfully")
+}
+
+func setupTray(ctx context.Context) {
+	log.Printf("Setting up tray icon, icon data length: %d", len(iconData))
+
+	systray.Register(onTrayReady, onTrayExit)
+}
+
+func onTrayReady() {
+	systray.SetIcon(iconData)
+	systray.SetTooltip("MQTT5 Explorer")
+
+	showHideItem := systray.AddMenuItem("Show/Hide MQTT5 Explorer", "Show or hide the main window")
+	systray.AddSeparator()
+	quitItem := systray.AddMenuItem("Quit MQTT5 Explorer", "Quit the application")
+
+	go func() {
+		for {
+			select {
+			case <-showHideItem.ClickedCh:
+				if windowVisible {
+					runtime.WindowHide(appCtx)
+					windowVisible = false
+				} else {
+					runtime.WindowShow(appCtx)
+					windowVisible = true
+				}
+			case <-quitItem.ClickedCh:
+				runtime.Quit(appCtx)
+				return
+			}
+		}
+	}()
+}
+
+func onTrayExit() {
 }
 
 func getUserDataDir() string {
@@ -82,6 +134,15 @@ func (a *App) shutdown(_ context.Context) {
 	mqttClient.DisconnectAll()
 	database.DB.Close()
 	log.Printf("Application shutdown")
+}
+
+func (a *App) beforeClose(ctx context.Context) bool {
+	if closeToTray {
+		runtime.WindowHide(ctx)
+		windowVisible = false
+		return true
+	}
+	return false
 }
 
 func onConnect(connectionID int64) {
