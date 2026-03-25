@@ -101,8 +101,10 @@ func onTrayReady() {
 					windowVisible = true
 				}
 			case <-quitItem.ClickedCh:
-				runtime.Quit(appCtx)
-				return
+				if appCtx != nil {
+					runtime.Quit(appCtx)
+				}
+				os.Exit(0)
 			}
 		}
 	}()
