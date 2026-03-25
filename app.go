@@ -22,12 +22,13 @@ import (
 var iconData []byte
 
 var (
-	h             *handlers.Handlers
-	mqttClient    *mqtt.Client
-	messageChan   chan *models.Message
-	appCtx        context.Context
-	closeToTray   bool
-	windowVisible bool
+	h               *handlers.Handlers
+	mqttClient      *mqtt.Client
+	messageChan     chan *models.Message
+	appCtx          context.Context
+	closeToTray     bool
+	windowVisible   bool
+	trayInitialized bool
 )
 
 type App struct {
@@ -67,6 +68,7 @@ func (a *App) startup(ctx context.Context) {
 
 	if closeToTray {
 		setupTray(ctx)
+		trayInitialized = true
 		windowVisible = false
 	} else {
 		windowVisible = true
@@ -185,6 +187,18 @@ func (a *App) GetSettings() (map[string]string, error) {
 }
 
 func (a *App) SetSetting(key, value string) error {
+	if key == "closeToTray" {
+		enabled := value == "true"
+		if enabled && !closeToTray {
+			closeToTray = true
+			if appCtx != nil && !trayInitialized {
+				setupTray(appCtx)
+				trayInitialized = true
+			}
+		} else if !enabled && closeToTray {
+			closeToTray = false
+		}
+	}
 	return h.SetSetting(context.Background(), key, value)
 }
 
