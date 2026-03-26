@@ -12,6 +12,8 @@ export function CreateConnection(arg1:models.Connection):Promise<number>;
 
 export function DeleteConnection(arg1:number):Promise<void>;
 
+export function DeleteTopicSubtree(arg1:number,arg2:string):Promise<void>;
+
 export function Disconnect(arg1:number):Promise<void>;
 
 export function ExportConnections(arg1:Array<number>):Promise<string>;

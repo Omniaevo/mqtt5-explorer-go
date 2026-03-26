@@ -22,6 +22,10 @@ export function DeleteConnection(arg1) {
   return window['go']['main']['App']['DeleteConnection'](arg1);
 }
 
+export function DeleteTopicSubtree(arg1, arg2) {
+  return window['go']['main']['App']['DeleteTopicSubtree'](arg1, arg2);
+}
+
 export function Disconnect(arg1) {
   return window['go']['main']['App']['Disconnect'](arg1);
 }

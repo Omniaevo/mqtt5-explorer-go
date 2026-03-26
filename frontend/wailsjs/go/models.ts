@@ -158,6 +158,7 @@ export namespace models {
 	    children?: Record<string, TopicNode>;
 	    messageCount: number;
 	    lastMessage?: Message;
+	    lastPayload?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new TopicNode(source);
@@ -170,6 +171,7 @@ export namespace models {
 	        this.children = this.convertValues(source["children"], TopicNode, true);
 	        this.messageCount = source["messageCount"];
 	        this.lastMessage = this.convertValues(source["lastMessage"], Message);
+	        this.lastPayload = source["lastPayload"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

@@ -244,18 +244,7 @@ func (c *Client) handleMessage(connectionID int64, publish *paho.Publish) {
 }
 
 func (c *Client) buildBrokerURL(conn *models.Connection) string {
-	switch conn.Protocol {
-	case "mqtt":
-		return fmt.Sprintf("tcp://%s:%d", conn.Host, conn.Port)
-	case "mqtts":
-		return fmt.Sprintf("ssl://%s:%d", conn.Host, conn.Port)
-	case "ws":
-		return fmt.Sprintf("ws://%s:%d/mqtt", conn.Host, conn.Port)
-	case "wss":
-		return fmt.Sprintf("wss://%s:%d/mqtt", conn.Host, conn.Port)
-	default:
-		return fmt.Sprintf("tcp://%s:%d", conn.Host, conn.Port)
-	}
+	return fmt.Sprintf("%s://%s:%d", conn.Protocol, conn.Host, conn.Port)
 }
 
 func (c *Client) subscribeToDefaults(conn *models.Connection) {
@@ -355,6 +344,35 @@ func (c *Client) SendMessage(ctx context.Context, req *models.SendMessageRequest
 	}
 
 	log.Printf("[MQTT] Published to %s (qos: %d, retain: %v)", req.Topic, req.QoS, req.Retain)
+
+	return nil
+}
+
+func (c *Client) DeleteTopicSubtree(ctx context.Context, connectionID int64, topic string) error {
+	allTopics, err := database.DB.GetAllTopics(ctx, connectionID)
+	if err != nil {
+		return err
+	}
+
+	var topicsToDelete []string
+	for _, t := range allTopics {
+		if t == topic || strings.HasPrefix(t, topic+"/") {
+			topicsToDelete = append(topicsToDelete, t)
+		}
+	}
+
+	for _, t := range topicsToDelete {
+		req := &models.SendMessageRequest{
+			ConnectionID: connectionID,
+			Topic:        t,
+			Payload:      "",
+			QoS:          0,
+			Retain:       true,
+		}
+		if err := c.SendMessage(ctx, req); err != nil {
+			log.Printf("[MQTT] Error deleting topic %s: %v", t, err)
+		}
+	}
 
 	return nil
 }
@@ -519,6 +537,9 @@ func BuildTopicTree(messages []models.Message) *models.TopicNode {
 				current.FullTopic = topic
 				current.MessageCount = topicStats[topic]
 				current.LastMessage = topicLastMsg[topic]
+				if topicLastMsg[topic] != nil {
+					current.LastPayload = string(topicLastMsg[topic].Payload)
+				}
 			}
 		}
 	}

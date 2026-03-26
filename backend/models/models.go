@@ -105,6 +105,7 @@ type TopicNode struct {
 	Children     map[string]*TopicNode `json:"children,omitempty"`
 	MessageCount int                   `json:"messageCount"`
 	LastMessage  *Message              `json:"lastMessage,omitempty"`
+	LastPayload  string                `json:"lastPayload,omitempty"`
 }
 
 type SendMessageRequest struct {

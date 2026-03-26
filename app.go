@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"log"
 	"os"
@@ -13,14 +14,21 @@ import (
 	"mqtt5-explorer-go/backend/models"
 	"mqtt5-explorer-go/backend/mqtt"
 
+	"github.com/getlantern/systray"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+//go:embed build/appicon.png
+var iconData []byte
+
 var (
-	h           *handlers.Handlers
-	mqttClient  *mqtt.Client
-	messageChan chan *models.Message
-	appCtx      context.Context
+	h               *handlers.Handlers
+	mqttClient      *mqtt.Client
+	messageChan     chan *models.Message
+	appCtx          context.Context
+	closeToTray     bool
+	windowVisible   bool
+	trayInitialized bool
 )
 
 type App struct {
@@ -48,6 +56,8 @@ func (a *App) startup(ctx context.Context) {
 
 	settings, _ := database.DB.GetAllSettings(context.Background())
 
+	closeToTray = settings["closeToTray"] == "true"
+
 	messageChan = make(chan *models.Message, 1000)
 	mqttClient = mqtt.NewClient(messageChan, onConnect, onDisconnect)
 	mqttClient.UpdateSettings(settings)
@@ -56,7 +66,53 @@ func (a *App) startup(ctx context.Context) {
 
 	h = handlers.NewHandlers(mqttClient)
 
+	if closeToTray {
+		setupTray(ctx)
+		trayInitialized = true
+		windowVisible = false
+	} else {
+		windowVisible = true
+	}
+
 	log.Printf("Application started successfully")
+}
+
+func setupTray(ctx context.Context) {
+	log.Printf("Setting up tray icon, icon data length: %d", len(iconData))
+
+	systray.Register(onTrayReady, onTrayExit)
+}
+
+func onTrayReady() {
+	systray.SetIcon(iconData)
+	systray.SetTooltip("MQTT5 Explorer")
+
+	showHideItem := systray.AddMenuItem("Show/Hide MQTT5 Explorer", "Show or hide the main window")
+	systray.AddSeparator()
+	quitItem := systray.AddMenuItem("Quit MQTT5 Explorer", "Quit the application")
+
+	go func() {
+		for {
+			select {
+			case <-showHideItem.ClickedCh:
+				if windowVisible {
+					runtime.WindowHide(appCtx)
+					windowVisible = false
+				} else {
+					runtime.WindowShow(appCtx)
+					windowVisible = true
+				}
+			case <-quitItem.ClickedCh:
+				if appCtx != nil {
+					runtime.Quit(appCtx)
+				}
+				os.Exit(0)
+			}
+		}
+	}()
+}
+
+func onTrayExit() {
 }
 
 func getUserDataDir() string {
@@ -84,6 +140,15 @@ func (a *App) shutdown(_ context.Context) {
 	log.Printf("Application shutdown")
 }
 
+func (a *App) beforeClose(ctx context.Context) bool {
+	if closeToTray {
+		runtime.WindowHide(ctx)
+		windowVisible = false
+		return true
+	}
+	return false
+}
+
 func onConnect(connectionID int64) {
 	if appCtx != nil {
 		runtime.EventsEmit(appCtx, "connection-status", map[string]interface{}{
@@ -108,6 +173,9 @@ func messageListener(ctx context.Context) {
 		case msg := <-messageChan:
 			data, _ := json.Marshal(msg)
 			runtime.EventsEmit(ctx, "mqtt-message", string(data))
+			if len(msg.Payload) == 0 {
+				runtime.EventsEmit(ctx, "topic-delete", msg.Topic)
+			}
 		}
 	}
 }
@@ -119,6 +187,18 @@ func (a *App) GetSettings() (map[string]string, error) {
 }
 
 func (a *App) SetSetting(key, value string) error {
+	if key == "closeToTray" {
+		enabled := value == "true"
+		if enabled && !closeToTray {
+			closeToTray = true
+			if appCtx != nil && !trayInitialized {
+				setupTray(appCtx)
+				trayInitialized = true
+			}
+		} else if !enabled && closeToTray {
+			closeToTray = false
+		}
+	}
 	return h.SetSetting(context.Background(), key, value)
 }
 
@@ -231,6 +311,10 @@ func (a *App) SendMessage(req *models.SendMessageRequest) error {
 	return h.SendMessage(context.Background(), req)
 }
 
+func (a *App) DeleteTopicSubtree(connectionID int64, topic string) error {
+	return h.DeleteTopicSubtree(context.Background(), connectionID, topic)
+}
+
 func (a *App) Subscribe(connectionID int64, topic string, qos int) error {
 	return h.Subscribe(context.Background(), connectionID, topic, qos)
 }
@@ -255,14 +339,14 @@ func (a *App) CheckPort(host string, port int) bool {
 	return h.CheckPort(context.Background(), host, port)
 }
 
-func (a *App) GetVersion() (string) {
-  var config struct {
-    Info struct {
-      ProductVersion string `json:"productVersion"`
-    } `json:"info"`
-  }
+func (a *App) GetVersion() string {
+	var config struct {
+		Info struct {
+			ProductVersion string `json:"productVersion"`
+		} `json:"info"`
+	}
 
-  json.Unmarshal(WailsJSON, &config)
+	json.Unmarshal(WailsJSON, &config)
 
-  return config.Info.ProductVersion
+	return config.Info.ProductVersion
 }

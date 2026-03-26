@@ -282,6 +282,10 @@ func (h *Handlers) SendMessage(ctx context.Context, req *models.SendMessageReque
 	return h.mqttClient.SendMessage(ctx, req)
 }
 
+func (h *Handlers) DeleteTopicSubtree(ctx context.Context, connectionID int64, topic string) error {
+	return h.mqttClient.DeleteTopicSubtree(ctx, connectionID, topic)
+}
+
 func (h *Handlers) Subscribe(ctx context.Context, connectionID int64, topic string, qos int) error {
 	return h.mqttClient.Subscribe(connectionID, topic, byte(qos))
 }
