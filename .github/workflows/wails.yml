@@ -33,10 +33,11 @@ jobs:
             target: 'Windows (arm64)'
             platform: 'windows/arm64'
             os: 'windows-11-arm' # arm64 version
-          - name: mqtt5-explorer-go-${{ github.ref_name }}-darwin-universal
-            target: 'MacOS (universal)'
-            platform: 'darwin/universal' # arm64 + amd64
-            os: 'macos-latest'
+          # DISABLED because of system tray incompatibility
+          # - name: mqtt5-explorer-go-${{ github.ref_name }}-darwin-universal
+          #   target: 'MacOS (universal)'
+          #   platform: 'darwin/universal' # arm64 + amd64
+          #   os: 'macos-latest'
 
     runs-on: ${{ matrix.build.os }}
 
